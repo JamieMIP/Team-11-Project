@@ -1,5 +1,5 @@
 ﻿# Team-11-Project
-# Posts and Knowledge Base
+# Forums and Knowledge Base
 
 **COB290 Group Project, Team 11. Productivity and knowledge management system, Part 1 prototype.**
 
