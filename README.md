@@ -1,5 +1,8 @@
 ﻿# Team-11-Project
 # Project Task Management System
+COB290 Group Project, Team 11. Productivity and knowledge management system, Part 1 prototype.
+
+Author: Nicole Wong · Team: Team 11 · Status: in progress
 
 This project is the design of a task management system for project work. Managers and team leaders create, assign and oversee project tasks. Employees update the status of the tasks assigned to them. This README contains the requirements, the role summaries, the UML class diagram and the flowcharts.
 
