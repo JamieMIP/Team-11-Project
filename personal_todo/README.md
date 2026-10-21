@@ -10,6 +10,7 @@ This folder contains the logic for the personal to-do list. Employees can create
 |------|------------------|
 | `exceptions.py` | Custom errors, all based on `TodoError`, so the GUI can catch any error from this component and show a friendly message |
 | `models.py` | `Status` and `Priority` (fixed options), `TodoItem` (one item) and `TodoList` (a group of items) |
+| `service.py` | `PersonalTodoService`: the one class the GUI uses. Creates the General list, groups lists by team, archives old items and keeps each employee's lists private |
 | `__init__.py` | Marks the folder as a Python package so it can be imported |
 
 ## What's done so far
@@ -36,20 +37,21 @@ flowchart TD
     I -- No --> K["Item shown as normal"]
 ```
 
-## Example
+   ## How to use it (for the GUI)
 
 ```python
-from personal_todo.models import Priority, TodoItem, TodoList
+   from personal_todo import PersonalTodoService, TodoError
 
-work = TodoList("Website redesign", "brandon@make-it-all.co.uk")
-item = TodoItem("Draft homepage copy", priority=Priority.HIGH)
-work.add_item(item)
+   service = PersonalTodoService()               # create once when the app starts
+   service.on_change(refresh_todo_screen)        # GUI redraws after any change
 
-item.mark_done()
-print(work.progress())   # 100.0
+   lists = service.get_lists(current_user_email) # General first, then teams
+   try:
+       service.add_item(current_user_email, lists[0].id, "Order printer paper")
+   except TodoError as error:
+       show_error_popup(str(error))
 ```
 
-## Still to do
+   ## Still to do
 
-- `PersonalTodoService`: the single class the GUI will use
-- Automated tests
+   - Automated tests (pytest)
