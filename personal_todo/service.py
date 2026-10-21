@@ -11,6 +11,17 @@ from .models import Priority, Status, TodoItem, TodoList
 GENERAL_LIST_NAME = "General"
 
 
+def _list_order(todo_list: TodoList) -> tuple[int, str]:
+    """Sort order: General first, then custom lists, then team lists, A to Z."""
+    if todo_list.is_general():
+        kind = 0
+    elif todo_list.is_team_list():
+        kind = 2
+    else:
+        kind = 1
+    return kind, todo_list.name.lower()
+
+
 class PersonalTodoService:
     """Creates, finds and changes employees' personal to-do lists.
 
@@ -36,7 +47,7 @@ class PersonalTodoService:
     # ----- lists -----
 
     def get_lists(self, owner_email: str) -> list[TodoList]:
-        """Return the employee's lists: General first, then teams A to Z.
+        """Return the employee's lists: General, then custom lists, then teams.
 
         Creates the General list if it doesn't exist yet, and archives
         items that have been done for longer than the archive period.
@@ -46,19 +57,31 @@ class PersonalTodoService:
                  if todo_list.owner_email == owner]
 
         if not any(todo_list.is_general() for todo_list in owned):
-            general = TodoList(GENERAL_LIST_NAME, owner)
+            general = TodoList(GENERAL_LIST_NAME, owner, general=True)
             self._lists[general.id] = general
             owned.append(general)
 
         for todo_list in owned:
             todo_list.archive_old_completed(self._archive_after_days)
 
-        return sorted(owned, key=lambda todo_list: (not todo_list.is_general(),
-                                                    todo_list.name.lower()))
+        return sorted(owned, key=_list_order)
 
     def get_general_list(self, owner_email: str) -> TodoList:
         """Return the employee's General list."""
         return self.get_lists(owner_email)[0]
+
+    def create_list(self, owner_email: str, name: str) -> TodoList:
+        """Create a custom list that isn't tied to a team, e.g. "Training"."""
+        if not name or not name.strip():
+            raise ValidationError("List name cannot be blank.")
+        for todo_list in self.get_lists(owner_email):
+            if todo_list.name.lower() == name.strip().lower():
+                raise ValidationError(f"You already have a list called {todo_list.name}.")
+
+        new_list = TodoList(name, owner_email)
+        self._lists[new_list.id] = new_list
+        self._notify()
+        return new_list
 
     def create_team_list(self, owner_email: str, team: str) -> TodoList:
         """Create a list for one team. Each team can only have one list."""
@@ -74,7 +97,7 @@ class PersonalTodoService:
         return new_list
 
     def delete_list(self, owner_email: str, list_id: str) -> None:
-        """Delete a team list and its items. The General list can't be deleted."""
+        """Delete a team or custom list and its items. General can't be deleted."""
         todo_list = self._get_owned_list(owner_email, list_id)
         if todo_list.is_general():
             raise ValidationError("The General list can't be deleted.")

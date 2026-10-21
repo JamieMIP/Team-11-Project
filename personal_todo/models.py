@@ -77,12 +77,14 @@ class TodoItem:
 class TodoList:
     """A group of to-do items belonging to one employee.
 
-    A list with a team (e.g. "Team X") holds items for that team.
-    A list with no team is the employee's General list for loose items.
+    There are three kinds of list:
+    - General: one per employee, for loose items (general=True)
+    - Team lists: items for one team, e.g. "Team X" (team is set)
+    - Custom lists: anything else, e.g. "Training" (no team, not general)
     """
 
     def __init__(self, name: str, owner_email: str,
-                 team: str | None = None) -> None:
+                 team: str | None = None, general: bool = False) -> None:
         self.id: str = str(uuid.uuid4())
         self.name: str = _clean_text(name, "List name")
         self.owner_email: str = _clean_text(owner_email, "Owner email").lower()
@@ -90,10 +92,15 @@ class TodoList:
         self.created_at: datetime = datetime.now()
         self._items: list[TodoItem] = []
         self._archived: list[TodoItem] = []
+        self._general: bool = general
 
     def is_general(self) -> bool:
-        """Return True if this is the General list (no team)."""
-        return self.team is None
+        """Return True if this is the employee's General list."""
+        return self._general
+
+    def is_team_list(self) -> bool:
+        """Return True if this list belongs to a team."""
+        return self.team is not None
 
     def add_item(self, item: TodoItem) -> None:
         """Add an item to the end of the list."""
