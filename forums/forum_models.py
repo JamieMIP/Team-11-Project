@@ -57,6 +57,8 @@ def _clean_tags(tags: list[str]) -> list[str]:
             cleaned.append(tag)
     return cleaned
 
+# ----- CLASSES -----
+
 class Topic:
     """A subject that posts are filed under, such as "Printing" Used for filtering later."""
 
@@ -108,3 +110,129 @@ class Comment:
     def plain_text(self) -> str:
         """Return the comment without formatting."""
         return _plain_text(self.body)
+
+class Post:
+    """A piece of shared knowledge inside a topic.
+
+    The body is rich text (HTML from the editor), so it can hold
+    formatting and links. created_at can be passed in so sample data
+    can have posts of different ages; normally leave it out.
+    """
+
+    def __init__(self, title: str, body: str, author_email: str,
+                 author_name: str, topic: Topic,
+                 tags: list[str] | None = None,
+                 created_at: datetime | None = None) -> None:
+        if topic is None:
+            raise ValidationError("Choose a topic for the post.")
+        self.id: str = str(uuid.uuid4())
+        self.title: str = _clean_text(title, "Title")
+        self.body: str = _clean_text(body, "Body")
+        self.author_email: str = _clean_email(author_email)
+        self.author_name: str = _clean_text(author_name, "Author name")
+        self.topic: Topic = topic
+        self.tags: list[str] = _clean_tags(tags or [])
+        self.created_at: datetime = created_at or datetime.now()
+        self.accepted_solution: Comment | None = None
+        self.is_removed: bool = False
+        self.removed_by: str | None = None
+        self.removed_at: datetime | None = None
+        self._comments: list[Comment] = []
+
+
+    # ----- COMMENTS -----
+
+    def add_comment(self, author_email: str, author_name: str, body: str, create_at: datetime | None = None) -> Comment:
+        """Add a comment to a post and return it"""
+        if self.is_removed:
+            raise AccessDeniedError("Cannot comment on a removed post.")
+        comment = Comment(author_email, author_name, body, create_at)
+        self._comments.append(comment)
+        return comment
+
+    def get_comment(self, comment_id: str) -> Comment:
+        """Return a comment by its ID, or raise CommentNotFoundError."""
+        for comment in self._comments:
+            if comment.id == comment_id:
+                return comment
+        raise CommentNotFoundError(f"No comment with ID {comment_id}.")
+
+    def comments(self) -> list[Comment]:
+        """Return all comments on this post, oldest first"""
+        return list(self._comments)
+
+    def comment_count(self) -> int:
+        """Return the number of comments on this post"""
+        return len(self._comments)
+
+    # ----- ACCEPTED SOLUTION -----
+    """ Since forums usually are questions that are asked, this will mark the accepted solution by the author"""
+
+    def is_author(self, user_email: str) -> bool:
+        """Return True if the given email is the post's author."""
+        return user_email.strip().lower() == self.author_email.lower()
+
+    def mark_solution(self, user_email: str, comment_id: str) -> None:
+        """Mark a comment as the accepted solution to the post.
+
+        Only the post's author can mark a solution. If the comment ID is
+        invalid, raise CommentNotFoundError.
+        """
+        if not self.is_author(user_email):
+            raise AccessDeniedError("Only the post's author can mark a solution.")
+        self.accepted_solution = self.get_comment(comment_id)
+        return self.accepted_solution
+
+    def clear_solution(self, user_email: str) -> None:
+        """Clear the accepted solution.
+
+        Only the post's author can clear a solution. If there is no
+        accepted solution, this does nothing.
+        """
+        if not self.is_author(user_email):
+            raise AccessDeniedError("Only the post's author can clear a solution.")
+        self.accepted_solution = None
+
+    def is_solved(self) -> bool:
+        """Return True if the post has an accepted solution."""
+        return self.accepted_solution is not None
+
+    # ----- REMOVE POSTS -----
+
+    def can_be_removed_by(self, user_email: str, is_moderator: bool = False) -> bool:
+        """Return True if the given email is allowed to remove this post."""
+
+        return is_moderator or self.is_author(user_email)
+
+    def remove(self, user_email: str, is_moderator: bool = False) -> None:
+        """Return True is person can remove the post
+        Authors can remove their own posts and moderators can remove any
+
+        The post is kept, with who removed it and when, in case removal is questioned
+        """
+        if not self.can_be_removed_by(user_email, is_moderator):
+            raise AccessDeniedError("You cannot remove this post.")
+        if not self.is_removed:
+            self.is_removed = True
+            self.removed_by = user_email.strip().lower()
+            self.removed_at = datetime.now()
+
+    # ----- POST HELPERS -----
+
+    def last_activity(self) -> datetime:
+        """Return when the post was written or last commented on."""
+        if not self._comments:
+            return self.created_at
+        return max(self.created_at,
+                   max(comment.created_at for comment in self._comments))
+
+    def plain_text(self) -> str:
+        """Return the body without formatting, for searching."""
+        return _plain_text(self.body)
+
+    def preview(self, length: int = 150) -> str:
+        """Return the start of the body as plain text, for feed cards."""
+        text = self.plain_text()
+        if len(text) <= length:
+            return text
+        return text[:length].rsplit(" ", 1)[0] + "..."
