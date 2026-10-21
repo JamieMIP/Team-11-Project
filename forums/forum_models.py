@@ -142,11 +142,11 @@ class Post:
 
     # ----- COMMENTS -----
 
-    def add_comment(self, author_email: str, author_name: str, body: str, create_at: datetime | None = None) -> Comment:
+    def add_comment(self, author_email: str, author_name: str, body: str, created_at: datetime | None = None) -> Comment:
         """Add a comment to a post and return it"""
         if self.is_removed:
             raise AccessDeniedError("Cannot comment on a removed post.")
-        comment = Comment(author_email, author_name, body, create_at)
+        comment = Comment(author_email, author_name, body, created_at)
         self._comments.append(comment)
         return comment
 
