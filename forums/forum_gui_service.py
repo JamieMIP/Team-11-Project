@@ -6,8 +6,8 @@ from typing import Callable
 
 from .exceptions import (AccessDeniedError, PostNotFoundError,
                          TopicNotFoundError, ValidationError)
-from .feed import FeedEntry, FeedRanker
-from .models import Comment, Post, Topic, TopicCategory
+from .forum_feed import FeedEntry, FeedRanker
+from .forum_models import Comment, Post, Topic, TopicCategory
 
 
 class ForumService:
@@ -89,3 +89,106 @@ class ForumService:
         topic.link_team(team)
         self._notify()
         return topic
+
+    # ----- FOLLOWING TOPICS -----
+
+    def follow_topic(self, user_email: str, topic_id: str) -> None:
+        """Follow a topic so its posts rank higher in the user's feed."""
+        topic = self.get_topic(topic_id)
+        self._followed.setdefault(self._key(user_email), set()).add(topic.id)
+        self._notify()
+
+    def unfollow_topic(self, user_email: str, topic_id: str) -> None:
+        """Stop following a topic. Does nothing if it wasn't followed."""
+        self._followed.get(self._key(user_email), set()).discard(topic_id)
+        self._notify()
+
+    def is_following(self, user_email: str, topic_id: str) -> bool:
+        """Return True if the user follows this topic."""
+        return topic_id in self._followed_ids(user_email)
+
+    def get_followed_topics(self, user_email: str) -> list[Topic]:
+        """Return the topics the user follows, A to Z."""
+        followed = self._followed_ids(user_email)
+        return [topic for topic in self.get_topics() if topic.id in followed]
+
+    # ----- POSTS -----
+
+    def create_post(self, user_email: str, user_name: str, topic_id: str,
+                    title: str, body: str, tags: list[str] | None = None) -> Post:
+        """Publish a new post. The logged-in user is always the author."""
+        topic = self.get_topic(topic_id)
+        post = Post(title, body, user_email, user_name, topic, tags)
+        self._posts[post.id] = post
+        self._notify()
+        return post
+
+    def get_post(self, post_id: str) -> Post:
+        """Find a post to open. Removed posts count as not found."""
+        post = self._posts.get(post_id)
+        if post is None or post.is_removed:
+            raise PostNotFoundError("This post doesn't exist or has been removed.")
+        return post
+
+    def get_all_posts(self) -> list[Post]:
+        """Every post that hasn't been removed, newest first.
+
+        This is what the search feature should search through.
+        """
+        visible = [post for post in self._posts.values() if not post.is_removed]
+        return sorted(visible, key=lambda post: post.created_at, reverse=True)
+
+    def remove_post(self, user_email: str, post_id: str,
+                    is_moderator: bool = False) -> None:
+        """Remove a post. Authors can remove their own, moderators any."""
+        self.get_post(post_id).remove(user_email, is_moderator)
+        self._notify()
+
+    # ----- COMMENTS AND SOLUTIONS -----
+
+    def add_comment(self, user_email: str, user_name: str, post_id: str,
+                    body: str) -> Comment:
+        """Reply to a post and return the new comment."""
+        comment = self.get_post(post_id).add_comment(user_email, user_name, body)
+        self._notify()
+        return comment
+
+    def mark_solution(self, user_email: str, post_id: str, comment_id: str) -> Comment:
+        """Mark a comment as the accepted solution. Only the post's author can."""
+        comment = self.get_post(post_id).mark_solution(user_email, comment_id)
+        self._notify()
+        return comment
+
+    def clear_solution(self, user_email: str, post_id: str) -> None:
+        """Remove the accepted solution mark. Only the post's author can."""
+        self.get_post(post_id).clear_solution(user_email)
+        self._notify()
+
+    # ----- INSIGHT FOR MANAGERS -----
+
+    def unsolved_by_topic(self) -> list[tuple[Topic, int]]:
+        """Count unsolved technical posts in each topic, most first.
+
+        Counts are per topic, never per person, so this can't be used
+        to target individuals. Topics with nothing unsolved are left out.
+        """
+        counts: list[tuple[Topic, int]] = []
+        for topic in self.get_topics():
+            if not topic.is_technical():
+                continue
+            unsolved = sum(1 for post in self.get_all_posts()
+                           if post.topic is topic and not post.is_solved())
+            if unsolved:
+                counts.append((topic, unsolved))
+        counts.sort(key=lambda count: count[1], reverse=True)
+        return counts
+
+    # ----- PRIVATE HELPERS -----
+
+    def _key(self, user_email: str) -> str:
+        """Tidy an email so the same person always matches."""
+        return user_email.strip().lower()
+
+    def _followed_ids(self, user_email: str) -> set[str]:
+        """Return a copy of the IDs of the topics this user follows."""
+        return set(self._followed.get(self._key(user_email), set()))

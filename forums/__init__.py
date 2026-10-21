@@ -4,9 +4,10 @@ from .exceptions import (AccessDeniedError, CommentNotFoundError, ForumError,
                          PostNotFoundError, TopicNotFoundError, ValidationError)
 from .forum_feed import FeedEntry, FeedRanker
 from .forum_models import Comment, Post, Topic, TopicCategory
+from .forum_gui_service import ForumService
 
 __all__ = [
-    "FeedRanker", "FeedEntry",
+    "ForumService", "FeedEntry", "FeedRanker",
     "Topic", "TopicCategory", "Post", "Comment",
     "ForumError", "ValidationError", "TopicNotFoundError",
     "PostNotFoundError", "CommentNotFoundError", "AccessDeniedError",
