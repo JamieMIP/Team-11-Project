@@ -1,8 +1,6 @@
 """Data classes for the forums: people, topics, posts and comments.
 
-Role, Permission, User and Team are stand-ins until the team's shared
-user model exists. They only hold what the forums need, so they can be
-swapped for the shared classes later by changing the imports.
+Topics are filter categories for posts.
 """
 
 from __future__ import annotations
@@ -114,9 +112,6 @@ class Comment:
 class Post:
     """A piece of shared knowledge inside a topic.
 
-    The body is rich text (HTML from the editor), so it can hold
-    formatting and links. created_at can be passed in so sample data
-    can have posts of different ages; normally leave it out.
     """
 
     def __init__(self, title: str, body: str, author_email: str,
@@ -172,7 +167,7 @@ class Post:
         """Return True if the given email is the post's author."""
         return user_email.strip().lower() == self.author_email.lower()
 
-    def mark_solution(self, user_email: str, comment_id: str) -> None:
+    def mark_solution(self, user_email: str, comment_id: str) -> Comment:
         """Mark a comment as the accepted solution to the post.
 
         Only the post's author can mark a solution. If the comment ID is
@@ -205,7 +200,7 @@ class Post:
         return is_moderator or self.is_author(user_email)
 
     def remove(self, user_email: str, is_moderator: bool = False) -> None:
-        """Return True is person can remove the post
+        """
         Authors can remove their own posts and moderators can remove any
 
         The post is kept, with who removed it and when, in case removal is questioned
