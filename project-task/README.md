@@ -2,8 +2,6 @@
 
 The task management feature of the management system. Managers and team leaders create, assign and oversee project tasks, and employees update the tasks assigned to them. It's written in Python with object-oriented design and a Tkinter interface.
 
-![Team leader dashboard](docs/screenshots/team_leader_dashboard.png)
-
 ## Contents
 
 1. [Features](#features)
