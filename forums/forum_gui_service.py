@@ -201,7 +201,7 @@ class ForumService:
             if not topic.is_technical():
                 continue
             unsolved = sum(1 for post in self.get_all_posts()   
-                           if post.topic is topic and not post.needs_answer())
+                           if post.topic is topic and post.needs_answer())
             if unsolved:
                 counts.append((topic, unsolved))
         counts.sort(key=lambda count: count[1], reverse=True)
