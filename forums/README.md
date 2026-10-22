@@ -1,124 +1,224 @@
-﻿# Team-11-Project
-# Forums and Knowledge Base
+﻿# Forums and Knowledge Base
 
-**COB290 Group Project, Team 11. Productivity and knowledge management system, Part 1 prototype.**
+**Author:** Dominic Stachura · **Team:** Team 11 · **Status:** ready for review
 
-**Author:** Dominic Stachura · **Team:** Team 11 · **Status:** in progress
+Lets employees share technical knowledge (configs, bugs, fixes) and non-technical knowledge (admin processes) as **posts** filed under **topics** such as *Software Issues* or *Printing*. There are two kinds of post:
 
-This README covers the design of the **Posts** section. The algorithm-ranked posts feed is the **default home page** of the app, so it's the first thing every user sees.
+- **Forum posts:** questions and discussions. Anyone can write one, anyone can comment, and the author can mark a comment as the accepted solution.
+- **Announcements:** a title and description only, with no comments. Only moderators (Managers and Team Leaders) can post them.
 
-Employees share technical knowledge (configs, bugs, fixes) and non-technical knowledge (admin processes) as **Posts** inside **Topics** such as *Software Development* or *Printing*. The feed ranks posts by relevance to the user, how recent they are and how much discussion they have. From the feed, users can create posts, open and comment on them, search, or browse a single topic.
+Employees can follow topics and remove their own posts. Moderators can remove any post and manage topics.
+
+The **ranked posts feed is the default home page**. It orders posts by how relevant their topic is to the user, how much discussion they have, whether they are unsolved technical questions, and how recently they were active.
+
+This folder is **logic only**: no screens and no GUI imports. The GUI talks to one class, `ForumService`.
 
 ## Tech stack
 
 - **Language:** Python
-- **GUI:** PySide6
+- **GUI:** CustomTkinter
 - **Editor:** VS Code
-- **Data:** dummy data only for Part 1 (no live database or login)
+- **Data:** held in memory for Part 1 (no database or login)
 
-In VS Code, select the `.venv` interpreter with **Python: Select Interpreter** from the Command Palette.
+## How it works
 
-## Progress so far
-
-| Item | Status |
-|---|---|
-| Flow diagram: feed generation | Done |
-| Flow diagram: user actions from the feed | Done |
-| Class diagram | Done |
-| Pseudocode for feed, posting, moderation and search | Done |
-| Dummy data (users, teams, topics, posts, comments) | To do |
-| PySide6 screens: feed, post view, create post, search, topic view | To do |
-| Link the feed home page into the team's navigation | To do |
-
----
-
-## Diagram 1: Posts feed generation
-
-If a user doesn't follow any topics yet, the feed falls back to recent and popular posts so the home page is never empty.
+### Building the feed
 
 ```mermaid
 flowchart TD
-    A(["User opens the app"]) --> B["Load user context<br/>(role, teams, followed topics)"]
+    A(["User opens the app"]) --> B["GUI passes email and team names"]
     B --> C{"Follows any topics?"}
     C -- Yes --> D["Gather posts from followed<br/>and team topics"]
-    C -- No --> E["Gather recent and popular<br/>posts company-wide"]
-    D --> F["Score each post<br/>(topic match, recency, activity)"]
+    C -- No --> E["Gather posts active in<br/>the last 14 days"]
+    D --> F["Score each post<br/>(topic match, activity, unsolved, freshness)"]
     E --> F
-    F --> G["Sort by score,<br/>newest first on ties"]
-    G --> H(["Display posts feed as home page"])
+    F --> G["Sort by score,<br/>most recently active first on ties"]
+    G --> H(["Show the feed with a reason label on each post"])
 ```
 
-## Diagram 2: User actions from the feed
-
-From the feed the user can take one of four paths. Every path ends back at a feed.
-- Create post: pick a topic, write the post, validate and publish.
-- Open post: read the post, comment on it, or delete it if they have permission.
-- Search: enter keywords and filters, then open a result. This goes to the same post view as opening a post from the feed.
-- Browse topic: show the feed filtered to a single topic, ranked with the same scoring.
+### What a user can do from the feed
 
 ```mermaid
 flowchart TD
     S(["Posts feed displayed"]) --> ACT{"User action?"}
 
-    ACT -- Create post --> C1["Select topic"]
-    C1 --> C2["Write title, body,<br/>links and tags"]
-    C2 --> CV{"Post valid?"}
+    ACT -- New post --> K{"Which kind?"}
+    K -- Forum post --> F1["Select topic, write title,<br/>body, links and tags"]
+    K -- Announcement --> AM{"Moderator?"}
+    AM -- No --> AE["Show permission message"]
+    AE --> K
+    AM -- Yes --> A1["Select topic, write<br/>title and description"]
+    F1 --> CV{"Post valid?"}
+    A1 --> CV
     CV -- No --> CE["Show error message"]
-    CE --> C2
     CV -- Yes --> C3["Save post with author name"]
     C3 --> CR(["Return to posts feed"])
 
-    ACT -- Open post --> O1["Show post and comments"]
+    ACT -- Open post --> O1["Show post<br/>(and comments if allowed)"]
     O1 --> OD{"Action on post?"}
     OD -- Back --> OB(["Return to posts feed"])
-    OD -- Comment --> OC["Add comment"]
+    OD -- Comment --> OCA{"Forum post?"}
+    OCA -- Yes --> OC["Add comment"]
     OC --> O1
+    OCA -- No --> OE["Show message"]
+    OD -- Mark solution --> OS{"Forum post and<br/>viewer is the author?"}
+    OS -- Yes --> OSY["Mark comment as solution"]
+    OSY --> O1
+    OS -- No --> OE
     OD -- Delete --> OM{"Author or moderator?"}
-    OM -- No --> OE["Show permission message"]
+    OM -- No --> OE
     OE --> OD
-    OM -- Yes --> OR["Remove post"]
+    OM -- Yes --> OR["Hide post (soft delete)"]
     OR --> OEND(["Return to posts feed"])
 
-    ACT -- Search --> S1["Enter keywords and filters"]
-    S1 --> S2["Run search"]
-    S2 --> SV{"Results found?"}
-    SV -- No --> SE["Show empty state"]
-    SE --> S1
-    SV -- Yes --> S3["Show results list"]
-    S3 --> S4["Select a result"]
-    S4 --> O1
-
     ACT -- Browse topic --> T1["Choose a topic"]
-    T1 --> T2["Filter feed to that topic"]
-    T2 --> T3["Rank topic posts<br/>with same scoring"]
-    T3 --> T4(["Topic feed displayed"])
+    T1 --> T2["Rank that topic's posts<br/>with the same scoring"]
+    T2 --> T3(["Topic feed displayed"])
 ```
 
-## Diagram 3: Class diagram
-Diagram 3: Class diagram
+The GUI shows the comment box only when `post.allows_comments()` is True, and the "Mark as solution" button only on forum posts the viewer wrote. The logic refuses these actions anyway if a button is shown by mistake.
 
-The classes fall into three layers:
+Search is built by another team member. It searches the posts returned by `get_all_posts()`.
 
-- People and permissions: User, Team, Role, Permission
-- Knowledge base: Topic, Post, Comment, TopicCategory
-- Logic and data: FeedRanker, SearchService, SearchFilter, PostRepository
+### How a post is scored
+
+```
+score = (1 + topic + activity + unsolved) x freshness
+
+topic     = 3.0 if the user follows the topic, 2.0 if it's one of their team's topics, else 0
+activity  = 0.5 x log(1 + number of comments)
+unsolved  = 1.0 if post.needs_answer(): a technical forum post with no accepted solution, else 0
+freshness = 0.5 ^ (days since last activity / 3)
+```
+
+The reason label shown on each post is whichever part added the most, for example *From a topic you follow* or *Unsolved in Printing*. The weights are settings at the top of `FeedRanker` in `forum_feed.py`.
+
+## How to plug it into the GUI
+
+**1. Create one service when the app starts** and share it with every screen:
+
+```python
+from forums import ForumService, ForumError
+
+forum = ForumService()
+```
+
+For demos, use the sample data instead:
+
+```python
+from forums.forum_sample_data import SAMPLE_USERS, build_sample_forum
+
+forum = build_sample_forum()
+user = SAMPLE_USERS["lena"]   # pretend Lena is logged in
+```
+
+**2. Tell it how to refresh your screen.** It calls this after every change:
+
+```python
+forum.on_change(refresh_forum_screen)   # your own function, no arguments
+```
+
+**3. Draw the home feed** using the logged-in user's email and team names. Both kinds of post appear in the same feed:
+
+```python
+from forums import ForumPost
+
+for entry in forum.get_home_feed(user_email, team_names):
+    post = entry.post
+    print(post.type_label(), post.title, post.author_name, post.preview(), entry.reason)
+    if isinstance(post, ForumPost):
+        print(post.comment_count(), "comments", "Solved" if post.is_solved() else "")
+```
+
+**4. Wire up buttons**, catching `ForumError` to show a friendly message:
+
+```python
+try:
+    forum.create_forum_post(user_email, user_name, topic_id, title, body, tags)
+    forum.create_announcement(user_email, user_name, topic_id, title, description,
+                              is_moderator=is_moderator)
+    forum.add_comment(user_email, user_name, post_id, "Try restarting the router")
+    forum.mark_solution(user_email, post_id, comment_id)
+    forum.remove_post(user_email, post_id, is_moderator=is_moderator)
+except ForumError as error:
+    show_error_popup(str(error))   # your GUI's own pop-up
+```
+
+**5. Hide buttons the user can't use:**
+
+```python
+show_delete = post.can_be_removed_by(user_email, is_moderator)
+show_comment_box = post.allows_comments()
+show_mark_solution = isinstance(post, ForumPost) and post.is_author(user_email)
+follow_text = "Unfollow" if forum.is_following(user_email, topic_id) else "Follow"
+```
+
+**6. Showing post bodies.** Bodies are Markdown text: `**bold**`, `*italic*`, `[link text](https://...)` and `# Heading`. CustomTkinter's `CTkTextbox` doesn't allow fonts on text tags, so use a plain `tkinter.Text` widget to display a post. Use tags for bold and headings, and `tag_bind` with `webbrowser.open` for clickable links.
+
+## What you can call on `ForumService`
+
+Methods that act for someone take the logged-in user's email first.
+
+| Method | What it does |
+|--------|--------------|
+| `get_home_feed(email, team_names, limit)` | Ranked home page posts, as `FeedEntry` objects |
+| `get_topic_feed(email, topic_id, team_names, limit)` | Ranked posts in one topic (browse by topic) |
+| `get_topics()` | Every topic, A to Z |
+| `get_topic(topic_id)` | One topic |
+| `create_topic(email, name, description, category, is_moderator)` | New topic (moderators only) |
+| `link_topic_to_team(topic_id, team, is_moderator)` | Show a topic's posts to a team in their feed (moderators only) |
+| `follow_topic(email, topic_id)` / `unfollow_topic(email, topic_id)` | Follow or stop following a topic |
+| `is_following(email, topic_id)` | Whether to show Follow or Unfollow |
+| `get_followed_topics(email)` | The user's followed topics, A to Z |
+| `create_forum_post(email, name, topic_id, title, body, tags)` | Publish a forum post; the logged-in user is always the author |
+| `create_announcement(email, name, topic_id, title, description, is_moderator)` | Publish an announcement (moderators only) |
+| `get_post(post_id)` | Open a post (removed posts count as not found) |
+| `get_all_posts()` | Every visible post, newest first (used by search) |
+| `remove_post(email, post_id, is_moderator)` | Author removes their own, moderators any (soft delete) |
+| `add_comment(email, name, post_id, body)` | Reply to a forum post (announcements refuse comments) |
+| `mark_solution(email, post_id, comment_id)` | Accept a comment as the solution (forum post author only) |
+| `clear_solution(email, post_id)` | Remove the accepted solution (forum post author only) |
+| `unsolved_by_topic()` | Technical forum posts still needing an answer, per topic, most first, for managers |
+| `on_change(function)` | Runs your function after every change |
+
+**Useful on each `FeedEntry`:** `post`, `score`, `reason`
+
+**Useful on every post:** `id`, `title`, `body`, `author_name`, `author_email`, `topic`, `tags`, `created_at`, `type_label()`, `allows_comments()`, `needs_answer()`, `comments()`, `comment_count()`, `is_author()`, `can_be_removed_by()`, `preview()`, `plain_text()`, `last_activity()`
+
+**Only on forum posts:** `accepted_solution`, `is_solved()`, `mark_solution()`, `clear_solution()`
+
+**Useful on each topic:** `id`, `name`, `description`, `category`, `is_technical()`, `teams()`
+
+**Useful on each comment:** `id`, `author_name`, `author_email`, `body`, `created_at`
+
+## Errors
+
+All errors inherit from `ForumError`, so `except ForumError` catches everything.
+
+| Error | When |
+|-------|------|
+| `ValidationError` | Blank title, body, description, comment, name or topic name, a bad email, a duplicate topic name, commenting on an announcement, or marking a solution on one |
+| `TopicNotFoundError` | No topic with that ID |
+| `PostNotFoundError` | No post with that ID, or it has been removed |
+| `CommentNotFoundError` | No comment with that ID on the post |
+| `AccessDeniedError` | Not allowed, e.g. removing someone else's post, or a non-moderator creating a topic or announcement |
+
+## What the forum needs from other parts of the system
+
+The forum doesn't create or manage users, roles or teams. The GUI passes in:
+
+| Value | Comes from | Used for |
+|-------|-----------|----------|
+| `user_email` | Login | Who is acting; staff email is the unique identifier |
+| `user_name` | Login | Shown as the author of posts and comments |
+| `is_moderator` | Roles and permissions | True for Managers and Team Leaders (and anyone given moderation rights) |
+| `team_names` | Teams | Posts in a team's topics get the team boost in the feed |
+
+## Class diagram
 
 ```mermaid
 classDiagram
     direction TB
-
-    class Role {
-        <<enumeration>>
-        EMPLOYEE
-        TEAM_LEADER
-        MANAGER
-    }
-
-    class Permission {
-        <<enumeration>>
-        MODERATE_POSTS
-        CREATE_TOPICS
-    }
 
     class TopicCategory {
         <<enumeration>>
@@ -126,240 +226,173 @@ classDiagram
         NON_TECHNICAL
     }
 
-    class User {
-        -user_id: int
-        -name: str
-        -email: str
-        -role: Role
-        -extra_permissions: set~Permission~
-        -followed_topics: list~Topic~
-        +follow_topic(topic: Topic) None
-        +unfollow_topic(topic: Topic) None
-        +has_permission(p: Permission) bool
-        +can_moderate() bool
-    }
-
-    class Team {
-        -team_id: int
-        -name: str
-        -leader: User
-        -members: list~User~
-        -topics: list~Topic~
-        +add_member(user: User) None
-        +get_topics() list~Topic~
-    }
-
     class Topic {
-        -topic_id: int
-        -name: str
-        -description: str
-        -category: TopicCategory
-        -created_by: User
-        +get_posts() list~Post~
-    }
-
-    class Post {
-        -post_id: int
-        -title: str
-        -body: str
-        -author: User
-        -topic: Topic
-        -tags: list~str~
-        -created_at: datetime
-        -comments: list~Comment~
-        -accepted_solution: Optional~Comment~
-        -is_removed: bool
-        +add_comment(author: User, body: str) Comment
-        +mark_solution(comment: Comment, user: User) None
-        +remove(user: User) bool
-        +is_solved() bool
-        +last_activity() datetime
+        +id: str
+        +name: str
+        +created_by: str
+        +description: str
+        +category: TopicCategory
+        -_teams: list~str~
+        +is_technical() bool
+        +teams() list~str~
+        +link_team(team: str) None
+        +unlink_team(team: str) None
+        +is_linked_to(team_names: list~str~) bool
     }
 
     class Comment {
-        -comment_id: int
-        -author: User
-        -body: str
-        -created_at: datetime
+        +id: str
+        +author_email: str
+        +author_name: str
+        +body: str
+        +created_at: datetime
+        +plain_text() str
+    }
+
+    class Post {
+        <<abstract>>
+        +ALLOWS_COMMENTS: bool = True
+        +id: str
+        +title: str
+        +body: str
+        +author_email: str
+        +author_name: str
+        +topic: Topic
+        +tags: list~str~
+        +created_at: datetime
+        +is_removed: bool
+        +removed_by: str
+        +removed_at: datetime
+        -_comments: list~Comment~
+        +type_label()* str
+        +needs_answer()* bool
+        +allows_comments() bool
+        +add_comment(author_email, author_name, body) Comment
+        +get_comment(comment_id: str) Comment
+        +comments() list~Comment~
+        +comment_count() int
+        +is_author(user_email: str) bool
+        +can_be_removed_by(user_email, is_moderator) bool
+        +remove(user_email, is_moderator) None
+        +last_activity() datetime
+        +plain_text() str
+        +preview(length: int) str
+    }
+
+    class ForumPost {
+        +accepted_solution: Comment
+        +type_label() str
+        +needs_answer() bool
+        +mark_solution(user_email, comment_id) Comment
+        +clear_solution(user_email: str) None
+        +is_solved() bool
+    }
+
+    class Announcement {
+        +ALLOWS_COMMENTS: bool = False
+        +type_label() str
+        +needs_answer() bool
+    }
+
+    class FeedEntry {
+        +post: Post
+        +score: float
+        +reason: str
     }
 
     class FeedRanker {
-        -repository: PostRepository
-        -FOLLOWED_WEIGHT: float = 3.0
-        -TEAM_WEIGHT: float = 2.0
-        -ACTIVITY_WEIGHT: float = 0.5
-        -RECENCY_HALF_LIFE_DAYS: float = 3.0
-        -UNSOLVED_BOOST: float = 1.0
-        +build_feed(user: User, limit: int) list~Post~
-        -gather_candidates(user: User) list~Post~
-        -score(post: Post, user: User) float
+        +FOLLOWED_WEIGHT: float = 3.0
+        +TEAM_WEIGHT: float = 2.0
+        +ACTIVITY_WEIGHT: float = 0.5
+        +UNSOLVED_BOOST: float = 1.0
+        +RECENCY_HALF_LIFE_DAYS: float = 3.0
+        +COLD_START_DAYS: int = 14
+        +build_feed(posts, followed_topic_ids, team_names, limit) list~FeedEntry~
+        +rank(posts, followed_topic_ids, team_names, limit) list~FeedEntry~
+        -_gather_candidates(posts, followed_topic_ids, team_names, now) list~Post~
+        -_score(post, followed_topic_ids, team_names, now) FeedEntry
     }
 
-    class SearchService {
-        -repository: PostRepository
-        +search(keywords: str, filters: SearchFilter) list~Post~
-        -matches(post: Post, keywords: str) bool
-    }
-
-    class SearchFilter {
-        -topic: Optional~Topic~
-        -author: Optional~User~
-        -tags: list~str~
-        -date_from: Optional~date~
-        -date_to: Optional~date~
-        -solved_only: bool
-    }
-
-    class PostRepository {
-        -posts: list~Post~
-        -topics: list~Topic~
-        +get_all_posts() list~Post~
-        +get_post(post_id: int) Post
-        +add_post(post: Post) None
+    class ForumService {
+        -_topics: dict~str, Topic~
+        -_posts: dict~str, Post~
+        -_followed: dict~str, set~
+        -_ranker: FeedRanker
+        -_listeners: list
+        +on_change(callback) None
+        +get_home_feed(user_email, team_names, limit) list~FeedEntry~
+        +get_topic_feed(user_email, topic_id, team_names, limit) list~FeedEntry~
         +get_topics() list~Topic~
+        +get_topic(topic_id) Topic
+        +create_topic(user_email, name, description, category, is_moderator) Topic
+        +link_topic_to_team(topic_id, team, is_moderator) Topic
+        +follow_topic(user_email, topic_id) None
+        +unfollow_topic(user_email, topic_id) None
+        +is_following(user_email, topic_id) bool
+        +get_followed_topics(user_email) list~Topic~
+        +create_forum_post(email, name, topic_id, title, body, tags) ForumPost
+        +create_announcement(email, name, topic_id, title, desc, mod) Announcement
+        +get_post(post_id) Post
+        +get_all_posts() list~Post~
+        +remove_post(user_email, post_id, is_moderator) None
+        +add_comment(user_email, user_name, post_id, body) Comment
+        +mark_solution(user_email, post_id, comment_id) Comment
+        +clear_solution(user_email, post_id) None
+        +unsolved_by_topic() list
+        -_add_post(post: Post) None
+        -_get_forum_post(post_id) ForumPost
     }
 
-    User --> "1" Role
-    User --> "0..*" Permission : extra permissions
-    Team "0..*" -- "1..*" User : members
-    Team "0..*" -- "1" User : led by
-    User "1" -- "0..*" Post : writes
-    User "1" -- "0..*" Comment : writes
-    User "0..*" -- "0..*" Topic : follows
-    Team "0..*" -- "0..*" Topic : team topics
-    Topic "1" o-- "0..*" Post : contains
+    Post <|-- ForumPost
+    Post <|-- Announcement
     Topic --> "1" TopicCategory
+    Post --> "1" Topic : filed under
     Post "1" *-- "0..*" Comment : comments
-    Post --> "0..1" Comment : accepted solution
-    PostRepository "1" o-- "0..*" Post
-    PostRepository "1" o-- "0..*" Topic
-    FeedRanker --> "1" PostRepository
-    SearchService --> "1" PostRepository
-    SearchService ..> SearchFilter : uses
+    ForumPost --> "0..1" Comment : accepted solution
+    FeedEntry --> "1" Post
+    FeedRanker ..> FeedEntry : creates
+    ForumService "1" o-- "0..*" Topic
+    ForumService "1" o-- "0..*" Post
+    ForumService --> "1" FeedRanker
 ```
 
----
+Parameter names are shortened in the diagram (`mod` is `is_moderator`). `Post` is abstract: it can't be created on its own, and every subclass must write `type_label()` and `needs_answer()` (marked `*`). The feed only ever calls methods that `Post` defines, so a new kind of post can be added without changing the feed or the service's storage.
 
 ## Design decisions
 
-- **Moderation:** Managers can moderate by default, and anyone else can be given the `MODERATE_POSTS` permission individually. Authors can always delete their own posts.
-- **Soft delete:** removing a post sets `is_removed = True` instead of deleting it, so it can still be audited.
-- **Cold-start fallback:** users who follow no topics see recent and popular posts instead of an empty feed.
-- **Ranking uses last activity:** an old post that gets a new comment moves back up the feed.
-- **Unsolved boost:** open technical questions are pushed up so they get answered faster.
+- **Post types through inheritance.** `Post` is an abstract base class holding everything posts share. `ForumPost` adds accepted solutions; `Announcement` turns comments off with one class setting (`ALLOWS_COMMENTS = False`). Each answers `needs_answer()` in its own way, so the feed boosts open questions without checking which kind of post it has (polymorphism).
+- **Users identified by email.** As the client asked, and matching the personal to-do list. The forum stores the author's email and name on each post and comment, so posts are never anonymous.
+- **Moderation.** The client has no Admin role. Managers and Team Leaders moderate by default, and anyone else can be given moderation rights by the roles system. The GUI passes `is_moderator`, which defaults to `False` so forgetting it is always safe. Moderators can also create topics, which stops near-duplicates like "Printer" and "Printers" splitting posts up, and post announcements.
+- **Soft delete.** Removing a post hides it from the feed and `get_all_posts()`, but keeps it with who removed it and when, in case a removal is questioned.
+- **Markdown bodies.** The client requires formatting and links. Markdown is plain text, so it's simple to store and search, and the post screen formats it.
+- **Cold start.** A user who follows nothing, or whose topics have no posts yet, sees everything active in the last 14 days, so the home page is never empty.
+- **Ranking uses last activity.** A new comment brings an older post back up the feed.
+- **Unsolved boost.** Open technical forum posts are pushed up so they get answered faster. Announcements never get it.
+- **Topic-level insight only.** `unsolved_by_topic()` counts per topic, never per person, so it can't be used to target individuals. It helps managers see where training might be needed, which the original brief asks for.
 
----
+## Files
 
-## Pseudocode
+| File | What it contains |
+|------|------------------|
+| `__init__.py` | The public API: import everything from `forums` |
+| `forum_gui_service.py` | `ForumService`, the one class the GUI uses |
+| `forum_feed.py` | `FeedRanker` (the scoring) and `FeedEntry` (a post plus its score and reason) |
+| `forum_models.py` | `Topic`, `TopicCategory`, `Comment`, the abstract `Post`, and its subclasses `ForumPost` and `Announcement` |
+| `exceptions.py` | `ForumError` and the errors above |
+| `forum_sample_data.py` | Dummy topics, forum posts, announcements, comments and sample users for demos |
+| `tests/test_forums.py` | Automated tests |
+| `forum_analysis_files/` | Editable flow diagrams (`.drawio`) for Visual Paradigm Online or draw.io |
 
-### Building the feed
+## Running
 
-```
-FUNCTION build_feed(user, limit):
-    candidates = gather_candidates(user)
-    SORT candidates BY score(post, user) DESCENDING, THEN BY last_activity DESCENDING
-    RETURN first <limit> posts
-
-
-FUNCTION gather_candidates(user):
-    all_posts = every post WHERE is_removed IS FALSE
-
-    IF user.followed_topics IS EMPTY:
-        RETURN posts in all_posts active within the last 14 days
-
-    relevant_topics = user.followed_topics + topics of the user's teams
-    RETURN posts in all_posts whose topic IS IN relevant_topics
-```
-
-### Scoring a post
-
-The whole score is multiplied by a freshness value that halves every 3 days, so old posts sink unless someone comments again.
+From the repo root:
 
 ```
-FUNCTION score(post, user):
-    IF post.topic IN user.followed_topics:    topic_score = 3.0
-    ELSE IF post.topic IN user's team topics: topic_score = 2.0
-    ELSE:                                     topic_score = 0
-
-    activity_score = 0.5 * log(1 + number of comments)
-
-    IF post is TECHNICAL AND NOT post.is_solved():  unsolved_score = 1.0
-    ELSE:                                           unsolved_score = 0
-
-    age_in_days = (now - post.last_activity()) in days
-    freshness = 0.5 ^ (age_in_days / 3)
-
-    RETURN (1 + topic_score + activity_score + unsolved_score) * freshness
+python -m forums.forum_sample_data   # print every sample user's home feed
+python -m unittest -v                # run the tests
 ```
 
-### Creating a post
+## Notes
 
-```
-FUNCTION create_post(user, topic, title, body, tags):
-    IF topic, title or body IS BLANK:
-        SHOW error message
-        RETURN nothing
-
-    post = NEW Post(title, body, topic, tags, author = user, created_at = now)
-    repository.add_post(post)
-    RETURN post
-```
-
-### Deleting and moderating
-
-```
-FUNCTION can_moderate(user):
-    RETURN user.role IS MANAGER OR MODERATE_POSTS IN user.extra_permissions
-
-FUNCTION remove(post, user):
-    IF user IS post.author OR can_moderate(user):
-        post.is_removed = TRUE
-        RETURN TRUE
-    SHOW permission message
-    RETURN FALSE
-```
-
-### Searching
-
-```
-FUNCTION search(keywords, filters):
-    words = lowercase(keywords) split on spaces
-    results = empty list
-
-    FOR EACH post NOT removed:
-        IF post fails any filter (topic, author, tags, dates, solved only): SKIP
-
-        hits = 0
-        FOR EACH word IN words:
-            IF word IN post.title: hits += 2     # title matches count double
-            IF word IN post.body:  hits += 1
-            IF word IN post.tags:  hits += 1
-
-        IF words IS EMPTY OR hits > 0: ADD (hits, post) TO results
-
-    SORT results BY hits DESCENDING, THEN BY newest
-    RETURN posts from results
-```
-
----
-
-## Ideas to make the section stand out
-
-**Recommended**
-
-- **"Why am I seeing this?" labels:** each feed post shows its biggest scoring reason, such as *From a topic you follow* or *Unsolved in Printing*.
-- **Similar post detection:** while a title is being typed, show existing posts with similar titles using `difflib`, to cut down on duplicate questions.
-- **Knowledge-gap insight:** show managers which topics have the most unsolved posts, to help spot where training is needed.
-
-**Also worth considering**
-
-- **Post templates:** prefill the editor with headings for a Fix, How-to or Config post.
-- **"Might be out of date" flag:** old technical posts show a warning and a *Still accurate* button.
-- **Related posts on tasks:** show matching posts on a project task's detail screen.
-- **Quick search:** Ctrl+K opens search from anywhere using `QShortcut`.
-
----
-
-## Diagram source files
-
-Editable versions are in `docs/diagrams/`: `posts_feed_generation.drawio`, `posts_feed_user_actions.drawio` and `posts_class_diagram.drawio`. Import them into Visual Paradigm Online with **Diagram > Open From Device**, then **File > Save as > VP Online**. They also open in [draw.io](https://app.diagrams.net).
+- Data is held in memory for the Part 1 prototype and resets when the app closes. Only the storage inside `forum_gui_service.py` would need changing for a database in Part 2.
+- Search, users, roles and teams are built by other team members. See "What the forum needs from other parts of the system" above.
