@@ -7,7 +7,8 @@ from typing import Callable
 from .exceptions import (AccessDeniedError, PostNotFoundError,
                          TopicNotFoundError, ValidationError)
 from .forum_feed import FeedEntry, FeedRanker
-from .forum_models import Comment, Post, Topic, TopicCategory
+from .forum_models import (Announcement, Comment, ForumPost, Post, Topic,
+                           TopicCategory)
 
 
 class ForumService:
@@ -114,13 +115,36 @@ class ForumService:
 
     # ----- POSTS -----
 
-    def create_post(self, user_email: str, user_name: str, topic_id: str,
-                    title: str, body: str, tags: list[str] | None = None) -> Post:
-        """Publish a new post. The logged-in user is always the author."""
+    def create_forum_post(self, user_email: str, user_name: str, topic_id: str,
+                          title: str, body: str,
+                          tags: list[str] | None = None) -> ForumPost:
+        """Publish a forum post that people can comment on and solve."""
         topic = self.get_topic(topic_id)
-        post = Post(title, body, user_email, user_name, topic, tags)
+        post = ForumPost(title, body, user_email, user_name, topic, tags)
+        self._add_post(post)
+        return post
+
+    def create_announcement(self, user_email: str, user_name: str, topic_id: str,
+                            title: str, description: str,
+                            is_moderator: bool = False) -> Announcement:
+        """Publish an announcement (title and description only). Moderators means Managers or Team Leaders."""
+        if not is_moderator:
+            raise AccessDeniedError("Only managers and team leaders can post announcements.")
+        topic = self.get_topic(topic_id)
+        announcement = Announcement(title, description, user_email, user_name, topic)
+        self._add_post(announcement)
+        return announcement
+
+    def _add_post(self, post: Post) -> None:
+        """Store a new post of any kind and tell the GUI."""
         self._posts[post.id] = post
         self._notify()
+
+    def _get_forum_post(self, post_id: str) -> ForumPost:
+        """Find a post and check it is a forum post, which can have solutions."""
+        post = self.get_post(post_id)
+        if not isinstance(post, ForumPost):
+            raise ValidationError(f"{post.type_label()}s can't have a solution.")
         return post
 
     def get_post(self, post_id: str) -> Post:
@@ -155,13 +179,13 @@ class ForumService:
 
     def mark_solution(self, user_email: str, post_id: str, comment_id: str) -> Comment:
         """Mark a comment as the accepted solution. Only the post's author can."""
-        comment = self.get_post(post_id).mark_solution(user_email, comment_id)
+        comment = self._get_forum_post(post_id).mark_solution(user_email, comment_id)
         self._notify()
         return comment
 
     def clear_solution(self, user_email: str, post_id: str) -> None:
         """Remove the accepted solution mark. Only the post's author can."""
-        self.get_post(post_id).clear_solution(user_email)
+        self._get_forum_post(post_id).clear_solution(user_email)
         self._notify()
 
     # ----- INSIGHT FOR MANAGERS -----
@@ -176,8 +200,8 @@ class ForumService:
         for topic in self.get_topics():
             if not topic.is_technical():
                 continue
-            unsolved = sum(1 for post in self.get_all_posts()
-                           if post.topic is topic and not post.is_solved())
+            unsolved = sum(1 for post in self.get_all_posts()   
+                           if post.topic is topic and not post.needs_answer())
             if unsolved:
                 counts.append((topic, unsolved))
         counts.sort(key=lambda count: count[1], reverse=True)

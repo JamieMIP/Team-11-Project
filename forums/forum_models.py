@@ -1,10 +1,10 @@
-"""Data classes for the forums: people, topics, posts and comments.
+"""Data classes for the forums: Topics, Posts and Comments.
 
 Topics are filter categories for posts.
 """
 
 from __future__ import annotations
-
+from abc import ABC, abstractmethod
 import re
 import uuid
 from datetime import datetime
@@ -18,7 +18,7 @@ class TopicCategory(Enum):
     NON_TECHNICAL = "non-technical"
 
 
-"""Cleaners to check for staff email addresses, can be set to refuse if it is not a specific domain"""
+# Cleaners to check for staff email addresses, can be set to refuse if it is not a specific domain
 
 def _clean_text(value: str, field_name: str) -> str:
     """Remove spaces from both ends and refuse blank text"""
@@ -109,10 +109,15 @@ class Comment:
         """Return the comment without formatting."""
         return _plain_text(self.body)
 
-class Post:
-    """A piece of shared knowledge inside a topic.
+class Post(ABC):
+    """The shared base for every kind of post. ABSTRACT CLASS so never created directly.
 
+    Holds everything all posts have in common: a title, Markdown body,
+    author, topic, tags, comments and soft delete. Each kind of post
+    (ForumPost, Announcement) inherits this and adds or limits features.
     """
+
+    ALLOWS_COMMENTS: bool = True
 
     def __init__(self, title: str, body: str, author_email: str,
                  author_name: str, topic: Topic,
@@ -128,17 +133,35 @@ class Post:
         self.topic: Topic = topic
         self.tags: list[str] = _clean_tags(tags or [])
         self.created_at: datetime = created_at or datetime.now()
-        self.accepted_solution: Comment | None = None
         self.is_removed: bool = False
         self.removed_by: str | None = None
         self.removed_at: datetime | None = None
         self._comments: list[Comment] = []
 
+    # ----- MUST BE WRITTEN BY EACH KIND OF POST -----
 
-    # ----- COMMENTS -----
+    @abstractmethod
+    def type_label(self) -> str:
+        """Return a short label the GUI shows on the post, e.g. "Announcement"."""
 
-    def add_comment(self, author_email: str, author_name: str, body: str, created_at: datetime | None = None) -> Comment:
-        """Add a comment to a post and return it"""
+    @abstractmethod
+    def needs_answer(self) -> bool:
+        """Return True if the post is a question still waiting for an answer.
+
+        The feed gives these a boost so they get answered faster.
+        """
+
+    # ---- COMMENTS -----
+
+    def allows_comments(self) -> bool:
+        """Return True if people can comment. The GUI hides the comment box if not."""
+        return self.ALLOWS_COMMENTS
+
+    def add_comment(self, author_email: str, author_name: str, body: str,
+                    created_at: datetime | None = None) -> Comment:
+        """Add a comment to the post and return it."""
+        if not self.allows_comments():
+            raise ValidationError(f"{self.type_label()}s can't be commented on.")
         if self.is_removed:
             raise AccessDeniedError("Cannot comment on a removed post.")
         comment = Comment(author_email, author_name, body, created_at)
@@ -151,21 +174,81 @@ class Post:
             if comment.id == comment_id:
                 return comment
         raise CommentNotFoundError(f"No comment with ID {comment_id}.")
-
+    
     def comments(self) -> list[Comment]:
         """Return all comments on this post, oldest first"""
         return list(self._comments)
-
+    
     def comment_count(self) -> int:
         """Return the number of comments on this post"""
         return len(self._comments)
 
-    # ----- ACCEPTED SOLUTION -----
-    """ Since forums usually are questions that are asked, this will mark the accepted solution by the author"""
+        # ----- POST HELPERS -----
+
+    def last_activity(self) -> datetime:
+        """Return when the post was written or last commented on."""
+        if not self._comments:
+            return self.created_at
+        return max(self.created_at,
+                   max(comment.created_at for comment in self._comments))
+
+    def plain_text(self) -> str:
+        """Return the body without formatting, for searching."""
+        return _plain_text(self.body)
+
+    def preview(self, length: int = 150) -> str:
+        """Return the start of the body as plain text, for feed cards."""
+        text = self.plain_text()
+        if len(text) <= length:
+            return text
+        return text[:length].rsplit(" ", 1)[0] + "..."
+
+    # ----- REMOVE POSTS -----
 
     def is_author(self, user_email: str) -> bool:
         """Return True if the given email is the post's author."""
         return user_email.strip().lower() == self.author_email.lower()
+
+    def can_be_removed_by(self, user_email: str, is_moderator: bool = False) -> bool:
+        """Return True if the given email is allowed to remove this post."""
+
+        return is_moderator or self.is_author(user_email)
+
+    def remove(self, user_email: str, is_moderator: bool = False) -> None:
+        """
+        Authors can remove their own posts and moderators can remove any
+
+        The post is kept, with who removed it and when, in case removal is questioned
+        """
+        if not self.can_be_removed_by(user_email, is_moderator):
+            raise AccessDeniedError("You cannot remove this post.")
+        if not self.is_removed:
+            self.is_removed = True
+            self.removed_by = user_email.strip().lower()
+            self.removed_at = datetime.now()
+
+class ForumPost(Post):
+    """A piece of shared knowledge inside a topic.
+
+    """
+
+    def __init__(self, title: str, body: str, author_email: str,
+                 author_name: str, topic: Topic,
+                 tags: list[str] | None = None,
+                 created_at: datetime | None = None) -> None:
+        super().__init__(title, body, author_email, author_name, topic,
+                         tags, created_at)
+        self.accepted_solution: Comment | None = None
+
+    
+    def type_label(self) -> str:
+        return "Forum post"
+
+    def needs_answer(self) -> bool:
+        return self.topic.is_technical() and not self.is_solved()
+
+    # ----- ACCEPTED SOLUTION -----
+    # Since forums usually are questions that are asked, this will mark the accepted solution by the author
 
     def mark_solution(self, user_email: str, comment_id: str) -> Comment:
         """Mark a comment as the accepted solution to the post.
@@ -192,42 +275,19 @@ class Post:
         """Return True if the post has an accepted solution."""
         return self.accepted_solution is not None
 
-    # ----- REMOVE POSTS -----
+class Announcement(Post):
+    """A notice with just a title and description. Nobody can comment."""
 
-    def can_be_removed_by(self, user_email: str, is_moderator: bool = False) -> bool:
-        """Return True if the given email is allowed to remove this post."""
+    ALLOWS_COMMENTS = False
 
-        return is_moderator or self.is_author(user_email)
+    def __init__(self, title: str, description: str, author_email: str,
+                 author_name: str, topic: Topic,
+                 created_at: datetime | None = None) -> None:
+        super().__init__(title, description, author_email, author_name, topic,
+                         created_at=created_at)
 
-    def remove(self, user_email: str, is_moderator: bool = False) -> None:
-        """
-        Authors can remove their own posts and moderators can remove any
+    def type_label(self) -> str:
+        return "Announcement"
 
-        The post is kept, with who removed it and when, in case removal is questioned
-        """
-        if not self.can_be_removed_by(user_email, is_moderator):
-            raise AccessDeniedError("You cannot remove this post.")
-        if not self.is_removed:
-            self.is_removed = True
-            self.removed_by = user_email.strip().lower()
-            self.removed_at = datetime.now()
-
-    # ----- POST HELPERS -----
-
-    def last_activity(self) -> datetime:
-        """Return when the post was written or last commented on."""
-        if not self._comments:
-            return self.created_at
-        return max(self.created_at,
-                   max(comment.created_at for comment in self._comments))
-
-    def plain_text(self) -> str:
-        """Return the body without formatting, for searching."""
-        return _plain_text(self.body)
-
-    def preview(self, length: int = 150) -> str:
-        """Return the start of the body as plain text, for feed cards."""
-        text = self.plain_text()
-        if len(text) <= length:
-            return text
-        return text[:length].rsplit(" ", 1)[0] + "..."
+    def needs_answer(self) -> bool:
+        return False

@@ -94,7 +94,7 @@ class FeedRanker:
         activity_score = self.ACTIVITY_WEIGHT * math.log(1 + post.comment_count())
 
         unsolved_score = 0.0
-        if post.topic.is_technical() and not post.is_solved():
+        if post.needs_answer():
             unsolved_score = self.UNSOLVED_BOOST
 
         age_days = max(0.0, (now - post.last_activity()).total_seconds() / 86400)
