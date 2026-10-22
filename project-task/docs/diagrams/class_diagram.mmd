@@ -1,0 +1,108 @@
+classDiagram
+  direction TB
+  class Employee {
+    -employeeId : String
+    -name : String
+    -email : String
+    -dashboard : Dashboard
+    +role : String
+    +markToDo(task)
+    +markProgressing(task)
+    +markDone(task) bool
+    +canSee(task) bool
+  }
+  class TeamLeader {
+    -teamsLed : List~Team~
+    +canManage(employee) bool
+    +createTask()
+    +editTask(task)
+    +assignTask(task, employee)
+    +reassignTask(task, employee)
+    +reviewTask(task)
+    +reopenTask(task)
+    +approveTask(task)
+    +changeDeadline(task, date)
+    +changePriority(task, priority)
+  }
+  class Manager {
+    -managedTeams : List~Team~
+    +canManage(employee) bool
+    +createTeam()
+    +appointTeamLeader(team, leader)
+  }
+  class Team {
+    -teamId : String
+    -name : String
+    -leader : TeamLeader
+    -members : List~Employee~
+    +addMember(employee)
+    +removeMember(employee)
+  }
+  class Project {
+    -projectId : String
+    -name : String
+    -tasks : List~Task~
+    +addTask(task)
+    +showProgress() float
+    +completedCount() int
+  }
+  class Task {
+    -taskId : String
+    -title : String
+    -deadline : Date
+    -status : TaskStatus
+    -priority : Priority
+    -isHighRisk : boolean
+    -isApproved : boolean
+    -createdBy : TeamLeader
+    -assignee : Employee
+    -assignedBy : TeamLeader
+    +setPriority(priority)
+    +makeOverdue() bool
+    +isComplete() bool
+    +isAwaitingApproval() bool
+    +statusText() String
+  }
+  class Dashboard {
+    -owner : Employee
+    +visibleTasks() List~Task~
+    +highlightOverdueTask()
+    +activeTaskCount(employee) int
+    +highlightOverload(employee) bool
+    +show() dict
+  }
+  class TaskStatus {
+    <<enumeration>>
+    TO_DO
+    IN_PROGRESS
+    DONE
+    OVERDUE
+  }
+  class Priority {
+    <<enumeration>>
+    LOW
+    MEDIUM
+    HIGH
+  }
+  class TaskError {
+    <<exception>>
+  }
+  class PermissionDenied {
+    <<exception>>
+  }
+  class InvalidAction {
+    <<exception>>
+  }
+  TaskError <|-- PermissionDenied
+  TaskError <|-- InvalidAction
+  Employee <|-- TeamLeader
+  TeamLeader <|-- Manager
+  TeamLeader "1" --> "1..*" Team : leads
+  Team "*" o-- "*" Employee : members
+  Manager "1" --> "*" Team : creates
+  Project "1" *-- "*" Task : contains
+  Task "*" --> "1" Employee : assigned to
+  Employee "1" --> "1" Dashboard : views
+  Dashboard ..> Task : displays
+  Task ..> TaskStatus
+  Task ..> Priority

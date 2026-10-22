@@ -1,0 +1,38 @@
+flowchart TD
+  S([Start]) --> D["View dashboard for my area of responsibility"]
+  D --> TEAM{"New team needed?"}
+  TEAM -- Yes --> CT["createTeam()"]
+  CT --> AL["appointTeamLeader(): one leader per team"]
+  AL --> MEM["Add employees as team members"]
+  MEM --> SCOPE
+  TEAM -- No --> SCOPE{"Task within my area of responsibility?"}
+  SCOPE -- No --> NA["No permission"]
+  NA --> E([End])
+
+  SCOPE -- Yes --> NEW{"New task to assign?"}
+  NEW -- Yes --> CR["createTask()"]
+  CR --> SP["setPriority() and set deadline"]
+  SP --> PICK["Choose employee"]
+  PICK --> OL{"highlightOverload(): employee overloaded?"}
+  OL -- Yes --> PICK
+  OL -- No --> AS["assignTask()"]
+  AS --> MON
+  NEW -- No --> MON["Monitor tasks across teams"]
+
+  MON --> OVD{"Overdue task highlighted?"}
+  OVD -- Yes --> DEC{"Action needed?"}
+  DEC -- Adjust --> CH["changeDeadline() / changePriority()"]
+  DEC -- Reassign --> RE["Reassign task to another employee"]
+  DEC -- "Leave to team leader" --> MON
+  CH --> MON
+  RE --> MON
+
+  OVD -- No --> DONE{"High-risk task awaiting approval?"}
+  DONE -- No --> MON
+  DONE -- Yes --> RV["reviewTask()"]
+  RV --> OK{"Acceptable?"}
+  OK -- Yes --> AP["approveTask()"]
+  OK -- No --> RO["reopenTask()"]
+  RO --> MON
+  AP --> CMP["Task complete: project progress updated"]
+  CMP --> E
