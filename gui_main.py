@@ -3,6 +3,7 @@ from widgets import Dashboard, SidePanel, Dropdown
 from base import PlaceholderPage
 from pages.personal_todo_list import PersonalListPage
 from pages.team_todo_list import TeamListPage
+from pages.knowledge_base import KnowledgeBasePage
 
 from theme_config import ThemeManager
 from theme_studio import ThemeStudioWindow
@@ -10,6 +11,7 @@ from theme_studio import ThemeStudioWindow
 PAGES = {
     "List 1": PersonalListPage,
     "Team 1": TeamListPage,
+    "Knowledge Base": KnowledgeBasePage,
 }
 
 
@@ -24,7 +26,7 @@ class App(ctk.CTk):
         self.rowconfigure(1, weight=1)      # content row stretches
 
         self.dashboard = Dashboard(self)
-        self.dashboard.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.dashboard.grid(row=0, column=0, columnspan=2, sticky="ew") # ew = east west
 
         self.sidePanel = SidePanel(self, command=self.show_page)
         self.sidePanel.grid(row=1, column=0, sticky="ns")
