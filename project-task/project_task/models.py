@@ -4,9 +4,9 @@ from datetime import date
 from enum import Enum
 
 
-# ---------------------------------------------------------------------------
+
 # Enumerations, constants and errors
-# ---------------------------------------------------------------------------
+
 
 class TaskStatus(Enum):
     TO_DO: str = "To do"
@@ -36,10 +36,6 @@ class PermissionDenied(TaskError):
 class InvalidAction(TaskError):
     """Raised when an action is not valid for the task's current state."""
 
-
-# ---------------------------------------------------------------------------
-# Task
-# ---------------------------------------------------------------------------
 
 class Task:
     _nextId = 1
@@ -99,9 +95,8 @@ class Task:
                 f"Status: {self.statusText()}")
 
 
-# ---------------------------------------------------------------------------
+
 # Project
-# ---------------------------------------------------------------------------
 
 class Project:
     allProjects: list[Project] = []
@@ -146,9 +141,8 @@ class Project:
         cls.allProjects.clear()
 
 
-# ---------------------------------------------------------------------------
+
 # Employee
-# ---------------------------------------------------------------------------
 
 class Employee:
     role = "Employee"
@@ -196,9 +190,7 @@ class Employee:
         return f"{type(self).__name__}({self.name})"
 
 
-# ---------------------------------------------------------------------------
 # Team leader
-# ---------------------------------------------------------------------------
 
 class TeamLeader(Employee):
     role = "Team Leader"
@@ -207,7 +199,7 @@ class TeamLeader(Employee):
         super().__init__(employeeId, name, email)
         self.teamsLed: list[Team] = []
 
-    # --- permissions -------------------------------------------------------
+    # permissions
 
     def canManage(self, employee: Employee) -> bool:
         """Team leaders can act only on members of the teams they lead."""
@@ -225,7 +217,7 @@ class TeamLeader(Employee):
     def canSee(self, task: Task) -> bool:
         return super().canSee(task) or self._inScope(task)
 
-    # --- task management ---------------------------------------------------
+    # task management
 
     def createTask(self, project: Project, title: str, deadline: date,
                    priority: Priority = Priority.MEDIUM,
@@ -303,9 +295,7 @@ class TeamLeader(Employee):
         return task
 
 
-# ---------------------------------------------------------------------------
 # Manager
-# ---------------------------------------------------------------------------
 
 class Manager(TeamLeader):
     role = "Manager"
@@ -345,9 +335,9 @@ class Manager(TeamLeader):
         return team
 
 
-# ---------------------------------------------------------------------------
+
 # Team
-# ---------------------------------------------------------------------------
+
 
 class Team:
     _nextId = 1
@@ -377,9 +367,8 @@ class Team:
                 if task.assignee is employee and task.status != TaskStatus.DONE]
 
 
-# ---------------------------------------------------------------------------
 # Dashboard
-# ---------------------------------------------------------------------------
+
 
 class Dashboard:
     def __init__(self, owner: Employee):
