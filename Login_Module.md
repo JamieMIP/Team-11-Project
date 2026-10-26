@@ -1,0 +1,38 @@
+﻿# Team-11-Project - Login Module 
+
+ A drop-in authentication window built with CustomTkinter. It handles credential inputs, Single Sign-On (SSO) triggers, and returns session tracking data to the caller without requiring any modifications to the module itself.
+
+## 1. Adding to main.py
+
+Integrating the login window requires only importing and invoking run_login(). It pauses execution of main.py until the user authenticates or closes the window.
+
+```Python
+from login_module import run_login
+
+if __name__ == "__main__":
+    # Launch login module
+    user_id, login_time = run_login(show_theme_studio=False)
+
+    # Check if authentication succeeded
+    if user_id and login_time:
+        start_main_application(user_id, login_time)
+    else:
+        print("Login aborted or window closed.")
+```
+
+### Return Values
+
+run_login() returns a tuple:
+
+- user_id (str | None): The unique identifier for the authenticated account (e.g., "USR_ADMIN" or "SSO_99481"). Returns None if the window was closed without logging in.
+
+- login_time (datetime.datetime | None): The exact timestamp of successful authentication, used for session expiration and timeout calculations.
+
+## 2. Theme Changing 
+
+During development and UI experimentation, enable the interactive side panel:
+
+```Python
+
+user_id, login_time = run_login(show_theme_studio=True)
+```
