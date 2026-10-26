@@ -319,16 +319,25 @@ class LoginWindow(ctk.CTk):
         password = self.password_entry.get().strip()
 
         # Replace with your authentication backend check
-        if username == "admin" and password == "password123":
-            self.user_id = f"USR_{username.upper()}"
+        if username == "0" and password == "":
+            self.user_id = username
             self.login_time = datetime.now()
             self.destroy()
+        elif username == "1" and password == "":
+            self.user_id = username
+            self.login_time = datetime.now()
+            self.destroy()
+        elif username == "2" and password == "":
+            self.user_id = username
+            self.login_time = datetime.now()
+            self.destroy()
+
         else:
             self.status_label.configure(text="Invalid username or password")
 
     def sso_login(self):
         # Replace with your SSO authentication handler
-        self.user_id = "SSO_99481"
+        self.user_id = "0"
         self.login_time = datetime.now()
         self.destroy()
 
