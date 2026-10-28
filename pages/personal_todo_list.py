@@ -123,6 +123,13 @@ class PersonalListPage(Page):
             add_bar, text="Add Item", width=90, command=self.add_item
         ).pack(side="left", padx=(6, 0))
 
+        # Optional description, on its own row so there's room to type.
+        self.description_entry = ctk.CTkEntry(
+            self, placeholder_text="Description (optional)..."
+        )
+        self.description_entry.pack(fill="x", pady=(6, 0))
+        self.description_entry.bind("<Return>", lambda event: self.add_item())
+
         self.refresh()
 
     def on_show(self):
@@ -285,10 +292,12 @@ class PersonalListPage(Page):
                 return
 
         priority = PRIORITY_CHOICES[self.priority_menu.get()]
+        description = self.description_entry.get().strip()
         item = self.run_service(todo_service.add_item, self.selected_list_id,
-                                title, "", deadline, priority)
+                                title, description, deadline, priority)
         if item is not None:
             self.title_entry.delete(0, "end")
+            self.description_entry.delete(0, "end")
             self.deadline_entry.delete(0, "end")
 
     def set_status(self, item_id, status):
