@@ -20,10 +20,10 @@ class KnowledgePage(Page):
                                                 command=self.add_new_post)
         self.add_new_post_button.pack(side="left", padx=(10, 0))
 
-
-
         self.post_area = ctk.CTkScrollableFrame(self)
         self.post_area.pack(fill="both", expand=True)
+
+        self.post = []
 
     def add_new_post(self):
         top = ctk.CTkToplevel(self)
@@ -38,13 +38,15 @@ class KnowledgePage(Page):
         post_title = ctk.CTkEntry(top, placeholder_text="Post title...")
         post_title.pack(fill="x", padx=10, pady=10)
 
-        post_entry = ctk.CTkEntry(top, placeholder_text="Type your post here...")
-        post_entry.pack(fill="x", padx=10, pady=10)
-
         author_entry = ctk.CTkEntry(top, placeholder_text="Author name here...")
         author_entry.pack(fill="x", padx=10, pady=10)
 
         file_entry = ctk.CTkEntry(top, placeholder_text="File additions here...")
         file_entry.pack(fill="x", padx=10, pady=10)
 
-        ctk.CTkButton(top, text="Submit Post", command=lambda: self.submit_post(post_title.get(), post_entry.get(), author_entry.get(), file_entry.get(), top)).pack(pady=10)
+        post_entry = ctk.CTkTextbox(top, height=120)
+        post_entry.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkButton(top, text="Submit Post", command=lambda: self.submit_post(post_title.get(), post_entry.get("1.0", "end-1c"), author_entry.get(), file_entry.get(), top)).pack(pady=10)
+
+    
