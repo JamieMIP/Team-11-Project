@@ -76,7 +76,8 @@ class App(ctk.CTk):
         self.rowconfigure(1, weight=1)
 
         # 1. Dashboard (Top Bar) with user profile attached
-        self.dashboard = Dashboard(self, user_info=self.current_user)
+        self.logged_out = False      # True if the user pressed Log Out
+        self.dashboard = Dashboard(self, user_info=self.current_user, on_logout=self.logout)
         self.dashboard.grid(row=0, column=0, columnspan=2, sticky="ew")
 
         # 2. SidePanel with only the permitted team options
@@ -130,6 +131,14 @@ class App(ctk.CTk):
 
         # Refresh theme on newly opened screens
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+    def logout(self):
+        """Close this window. main.py then shows the login screen again.
+        Data is kept, so changes made by one user are seen by the next."""
+        ThemeManager.unsubscribe(self.apply_theme)
+        organisation.remove_listener(self.refresh_teams)
+        self.logged_out = True
+        self.destroy()
 
     def refresh_teams(self):
         """Update the Team To-do List dropdown if the user's teams changed."""
@@ -218,6 +227,8 @@ class App(ctk.CTk):
 
 
 def start_main_application(user_id, login_time=None):
-    """Entry point called by main.py after login succeeds."""
+    """Entry point called by main.py after login succeeds.
+    Returns True if the user pressed Log Out, False if they closed the window."""
     app = App(user_id=user_id, login_time=login_time)
     app.mainloop()
+    return app.logged_out

@@ -49,6 +49,11 @@ class OrganisationService:
     def on_change(self, callback: Callable[[], None]) -> None:
         self._listeners.append(callback)
 
+    def remove_listener(self, callback: Callable[[], None]) -> None:
+        """Stop calling a screen that has closed (e.g. after logging out)."""
+        if callback in self._listeners:
+            self._listeners.remove(callback)
+
     def _notify(self) -> None:
         for callback in list(self._listeners):
             try:

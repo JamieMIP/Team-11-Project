@@ -3,9 +3,9 @@ from base import Page
 
 class Dashboard(ctk.CTkFrame):
     """Top bar of the app, displays active user details and action button."""
-    def __init__(self, master, user_info=None):
+    def __init__(self, master, user_info=None, on_logout=None):
         super().__init__(master)
-        
+
         size = 40
         self.circle_btn = ctk.CTkButton(
             self,
@@ -15,6 +15,11 @@ class Dashboard(ctk.CTkFrame):
             corner_radius=size // 2
         )
         self.circle_btn.pack(side="right", padx=15, pady=8)
+
+        # Log Out: closes the app window and goes back to the login screen
+        if on_logout is not None:
+            self.logout_btn = ctk.CTkButton(self, text="Log Out", width=90, command=on_logout)
+            self.logout_btn.pack(side="right", padx=(10, 0), pady=8)
 
         # Active user label (updated dynamically from login session)
         self.label = ctk.CTkLabel(
