@@ -3,9 +3,9 @@ from base import Page
 
 class Dashboard(ctk.CTkFrame):
     """Top bar of the app, displays active user details and action button."""
-    def __init__(self, master, user_info=None):
+    def __init__(self, master, user_info=None, on_logout=None):
         super().__init__(master)
-        
+
         size = 40
         self.circle_btn = ctk.CTkButton(
             self,
@@ -15,6 +15,11 @@ class Dashboard(ctk.CTkFrame):
             corner_radius=size // 2
         )
         self.circle_btn.pack(side="right", padx=15, pady=8)
+
+        # Log Out: closes the app window and goes back to the login screen
+        if on_logout is not None:
+            self.logout_btn = ctk.CTkButton(self, text="Log Out", width=90, command=on_logout)
+            self.logout_btn.pack(side="right", padx=(10, 0), pady=8)
 
         # Active user label (updated dynamically from login session)
         self.label = ctk.CTkLabel(
@@ -36,7 +41,7 @@ class Dashboard(ctk.CTkFrame):
 
 class SidePanel(ctk.CTkFrame):
     """Sidebar navigation with dynamic sections for permitted teams."""
-    def __init__(self, master, command=None, team_items=None):
+    def __init__(self, master, command=None, team_items=None, extra_items=None):
         super().__init__(master)
         self.command = command
         self.dropdowns = {}
@@ -66,6 +71,12 @@ class SidePanel(ctk.CTkFrame):
         NavButton(self, "Knowledge Base", command=command).pack(
             fill="x", padx=(10, 20), pady=10
         )
+
+        # 4. Role-based links (My Tasks, Dashboard, New Project, Manage Teams & Roles)
+        for title in extra_items or []:
+            NavButton(self, title, command=command).pack(
+                fill="x", padx=(10, 20), pady=10
+            )
 
     def update_teams(self, team_list: list):
         """Allows dynamic refreshing of team entries based on user permissions."""
