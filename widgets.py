@@ -36,7 +36,7 @@ class Dashboard(ctk.CTkFrame):
 
 class SidePanel(ctk.CTkFrame):
     """Sidebar navigation with dynamic sections for permitted teams."""
-    def __init__(self, master, command=None, team_items=None):
+    def __init__(self, master, command=None, team_items=None, extra_items=None):
         super().__init__(master)
         self.command = command
         self.dropdowns = {}
@@ -66,6 +66,12 @@ class SidePanel(ctk.CTkFrame):
         NavButton(self, "Knowledge Base", command=command).pack(
             fill="x", padx=(10, 20), pady=10
         )
+
+        # 4. Role-based links (My Tasks, Dashboard, New Project, Manage Teams & Roles)
+        for title in extra_items or []:
+            NavButton(self, title, command=command).pack(
+                fill="x", padx=(10, 20), pady=10
+            )
 
     def update_teams(self, team_list: list):
         """Allows dynamic refreshing of team entries based on user permissions."""

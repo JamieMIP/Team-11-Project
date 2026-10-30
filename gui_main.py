@@ -5,18 +5,44 @@ from datetime import datetime
 from widgets import Dashboard, SidePanel
 from base import PlaceholderPage
 from pages.personal_todo_list import PersonalListPage
-from pages.team_todo_list import TeamListPage
+from pages.team_projects import TeamProjectsPage
 from pages.knowledge_base import KnowledgeBasePage
+from pages.my_tasks import MyTasksPage
+from pages.manager_dashboard import DashboardPage
+from pages.new_project import NewProjectPage
+from pages.manage_teams import ManageTeamsPage
 
 from theme_config import ThemeManager
 from theme_studio import ThemeStudioWindow
-from sample_data import LIVE_USERS, get_user_teams
+from sample_data import LIVE_USERS
+from organisation import Permission, organisation
 
 # Base static page bindings (Teams are loaded dynamically per-team key)
 PAGES = {
     "List 1": PersonalListPage,
     "Knowledge Base": KnowledgeBasePage,
+    "My Tasks": MyTasksPage,
+    "Dashboard": DashboardPage,
+    "New Project": NewProjectPage,
+    "Manage Teams & Roles": ManageTeamsPage,
 }
+
+
+def nav_items_for(email: str) -> list[str]:
+    """Sidebar links this user's role is allowed to see."""
+    items = ["My Tasks"]
+    if organisation.can(email, Permission.VIEW_DASHBOARD):
+        items.append("Dashboard")
+    if organisation.can(email, Permission.CREATE_PROJECTS):
+        items.append("New Project")
+    if organisation.can(email, Permission.CREATE_TEAMS):
+        items.append("Manage Teams & Roles")
+    return items
+
+
+def teams_for_user(email: str) -> dict:
+    """Team name -> team ID, for the teams this user can open."""
+    return {team.name: team.id for team in organisation.teams_for(email)}
 
 
 def _parse_user_id(raw_id) -> int:
@@ -40,7 +66,7 @@ class App(ctk.CTk):
 
         # Retrieve user profile & permitted teams
         self.current_user = LIVE_USERS.get(self.current_user_id, LIVE_USERS[2])
-        self.allowed_teams = get_user_teams(self.current_user_id)
+        self.allowed_teams = teams_for_user(self.current_user["email"])
 
         self.title("Productivity & Task Management Platform")
         self.geometry("1200x900")
@@ -57,10 +83,14 @@ class App(ctk.CTk):
         permitted_team_names = list(self.allowed_teams.keys())
         self.sidePanel = SidePanel(
             self, 
-            command=self.show_page, 
-            team_items=permitted_team_names
+            command=self.show_page,
+            team_items=permitted_team_names,
+            extra_items=nav_items_for(self.current_user["email"])
         )
         self.sidePanel.grid(row=1, column=0, sticky="ns")
+
+        # When a manager creates a team, add it to the sidebar straight away
+        organisation.on_change(self.refresh_teams)
 
         # 3. Main Content Container
         self.content = ctk.CTkFrame(self, fg_color="transparent")
@@ -84,7 +114,7 @@ class App(ctk.CTk):
         # Cache pages so task updates persist during the session
         if name not in self.pages:
             if name in self.allowed_teams:
-                self.pages[name] = TeamListPage(self.content, self, team_key=name)
+                self.pages[name] = TeamProjectsPage(self.content, self, team_key=name)
             else:
                 page_class = PAGES.get(name)
                 if page_class:
@@ -100,6 +130,14 @@ class App(ctk.CTk):
 
         # Refresh theme on newly opened screens
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+    def refresh_teams(self):
+        """Update the Team To-do List dropdown if the user's teams changed."""
+        teams = teams_for_user(self.current_user["email"])
+        if list(teams) != list(self.allowed_teams):
+            self.allowed_teams = teams
+            self.sidePanel.update_teams(list(teams))
+            self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
     def apply_theme(self, p, s):
         """Applies active palette (p) and geometry style (s) across the entire GUI."""
