@@ -173,3 +173,133 @@ class ThemeManager:
         if border is not None:
             cls.custom_border = int(border)
         cls.notify()
+
+def apply_theme_to_tree(root, p=None, s=None):
+    """
+    Globally styles any widget and all of its descendants recursively.
+    Penetrates CTkScrollableFrame canvas wrappers and dynamic card layouts.
+    """
+    if p is None:
+        p = ThemeManager.get_palette()
+    if s is None:
+        s = ThemeManager.get_style()
+
+    font_fam = s["font_family"]
+    w_radius = s["widget_radius"]
+    b_width = s["border_width"]
+    btn_text = "#000000" if ThemeManager.current_palette_name == "Cyber Neon" else "#FFFFFF"
+
+    def _style(w):
+        try:
+            # 1. Buttons
+            if isinstance(w, ctk.CTkButton):
+                txt = str(w.cget("text")).strip()
+                fg = w.cget("fg_color")
+
+                if fg == "transparent":
+                    w.configure(
+                        text_color=p["text"],
+                        hover_color=p["secondary_hover"],
+                        font=(font_fam, 13)
+                    )
+                elif txt in ("+25% Progress", "Reopen"):
+                    w.configure(
+                        fg_color=p["secondary"],
+                        hover_color=p["secondary_hover"],
+                        text_color="#FFFFFF",
+                        corner_radius=w_radius,
+                        border_width=b_width,
+                        border_color=p["border"],
+                        font=(font_fam, 12, "bold")
+                    )
+                else:
+                    w.configure(
+                        fg_color=p["primary"],
+                        hover_color=p["primary_hover"],
+                        text_color=btn_text,
+                        corner_radius=w_radius,
+                        border_width=b_width,
+                        border_color=p["border"],
+                        font=(font_fam, 13, "bold")
+                    )
+
+            # 2. Text Entries
+            elif isinstance(w, ctk.CTkEntry):
+                w.configure(
+                    fg_color=p["entry_bg"],
+                    text_color=p["text"],
+                    placeholder_text_color=p["subtext"],
+                    border_color=p["border"],
+                    corner_radius=w_radius,
+                    border_width=b_width,
+                    font=(font_fam, 13)
+                )
+
+            # 3. Dropdowns / Selectors
+            elif isinstance(w, (ctk.CTkOptionMenu, ctk.CTkComboBox)):
+                w.configure(
+                    fg_color=p["secondary"],
+                    button_color=p["primary"],
+                    button_hover_color=p["primary_hover"],
+                    text_color="#FFFFFF",
+                    corner_radius=w_radius,
+                    font=(font_fam, 13)
+                )
+
+            # 4. Checkboxes & Switches
+            elif isinstance(w, (ctk.CTkCheckBox, ctk.CTkSwitch, ctk.CTkRadioButton)):
+                w.configure(
+                    fg_color=p["primary"],
+                    hover_color=p["primary_hover"],
+                    text_color=p["text"],
+                    border_color=p["border"],
+                    font=(font_fam, 13)
+                )
+
+            # 5. Progress Bars
+            elif isinstance(w, ctk.CTkProgressBar):
+                w.configure(
+                    progress_color=p["primary"],
+                    fg_color=p["entry_bg"],
+                    border_color=p["border"],
+                    border_width=b_width,
+                    corner_radius=w_radius
+                )
+
+            # 6. Labels
+            elif isinstance(w, ctk.CTkLabel):
+                txt = str(w.cget("text")).strip()
+                if txt.startswith("[OVERDUE]"):
+                    w.configure(text_color=p["error"], font=(font_fam, 15, "bold"))
+                elif txt.startswith("[DONE]"):
+                    w.configure(text_color=p["subtext"], font=(font_fam, 13))
+                elif "Overall Project Progress" in txt or "Logged in:" in txt or "Topic:" in txt:
+                    w.configure(text_color=p["subtext"], font=(font_fam, 12, "bold"))
+                else:
+                    w.configure(text_color=p["text"])
+
+            # 7. Frames & Cards
+            elif isinstance(w, ctk.CTkScrollableFrame):
+                w.configure(
+                    fg_color="transparent",
+                    scrollbar_button_color=p["secondary"],
+                    scrollbar_button_hover_color=p["primary"]
+                )
+            elif isinstance(w, ctk.CTkFrame):
+                if w.cget("fg_color") != "transparent":
+                    # Keep error border on overdue cards if border_width is 2
+                    is_overdue = (w.cget("border_width") == 2)
+                    w.configure(
+                        fg_color=p["card_bg"],
+                        border_color=p["error"] if is_overdue else p["border"],
+                        corner_radius=s["card_radius"],
+                        border_width=2 if is_overdue else b_width
+                    )
+        except Exception:
+            pass
+
+        # CRITICAL: Traverse ALL children (including raw tkinter.Canvas) to reach nested cards
+        for child in w.winfo_children():
+            _style(child)
+
+    _style(root)

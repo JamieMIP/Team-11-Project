@@ -169,6 +169,12 @@ class PersonalListPage(Page):
         if hasattr(self.app, "apply_theme"):
             self.app.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
+        p = ThemeManager.get_palette()
+        s = ThemeManager.get_style()
+        font_fam = s["font_family"]
+        w_radius = s["widget_radius"]
+        b_width = s["border_width"]
+
     def draw_item(self, item):
         """Draw one item as a card with its details and buttons."""
         overdue = item.is_overdue()

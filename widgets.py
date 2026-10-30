@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from base import Page
+from theme_config import ThemeManager
 
 class Dashboard(ctk.CTkFrame):
     """Top bar of the app, displays active user details and action button."""

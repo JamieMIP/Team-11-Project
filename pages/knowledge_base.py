@@ -57,6 +57,8 @@ class KnowledgeBasePage(KnowledgePage):
             card = PostCard(self.post_area, post)
             card.grid(row=i // columns, column=i % columns, padx=10, pady=10)
 
+        self.apply_theme()
+
     def add_post(self, new_post):
             self.posts.append(new_post)
             self.forum.create_forum_post(self.user["email"], self.user["name"], new_post["topic"].id, new_post["title"], new_post["body"], tags=None)
