@@ -65,6 +65,18 @@ class KnowledgeBasePage(KnowledgePage):
         top.destroy()
         self.on_show()
 
+    def send_reply(self, post, text):
+        """Save a reply to a post, as the logged-in user."""
+        self.forum.add_comment(self.user_email, self.user_name, post.id, text)
+
+    def toggle_solution(self, post, comment):
+        """Mark a reply as the accepted solution, or unmark it if it already is.
+        The forum only lets the post's author do this."""
+        if post.accepted_solution is comment:
+            self.forum.clear_solution(self.user_email, post.id)
+        else:
+            self.forum.mark_solution(self.user_email, post.id, comment.id)
+            
     def on_search_posts(self, event):
         """Search when Enter is pressed or a topic is picked.
         With nothing typed and All topics picked, go back to the feed."""
