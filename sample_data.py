@@ -271,7 +271,7 @@ def build_sample_forum() -> ForumService:
         is_moderator=True), days_ago=0.5)
 
     backdate(forum.create_announcement(
-        dilip["email"], dilip["name"], dev.id, "Code freeze before the demo",
+        alice["email"], alice["name"], dev.id, "Code freeze before the demo",
         "No new features on `main` from Thursday. Bug fixes only.",
         is_moderator=True), days_ago=1)
 

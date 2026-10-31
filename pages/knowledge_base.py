@@ -1,6 +1,4 @@
-from pages.template_knowledge_base import KnowledgePage
-from pages.template_knowledge_base import KnowledgePage
-from widgets import PostCard
+from pages.template_knowledge_base import ALL_TOPICS, KnowledgePage
 
 from forums.post_search import search_posts
 from organisation import Role, organisation
@@ -20,6 +18,9 @@ class KnowledgeBasePage(KnowledgePage):
         # The Post objects currently on screen (the feed, or search results)
         self.posts = []
 
+        # Why each post is in the feed, e.g. "From a topic you follow" (post ID -> reason)
+        self.reasons = {}
+
     # ----- WHO IS LOGGED IN -----
 
     def is_manager(self) -> bool:
@@ -34,7 +35,10 @@ class KnowledgeBasePage(KnowledgePage):
     # ----- LOADING AND SHOWING POSTS -----
 
     def on_show(self):
-        """Runs every time the page is opened: reload the feed and draw it."""
+        """Runs every time the page is opened: back to the full feed, all topics."""
+        if self.search.get():               # clear old search text, keeping the placeholder
+            self.search.delete(0, "end")
+        self.filter_topic.set(ALL_TOPICS)
         self.load_feed()
         self.show_posts()
 
@@ -42,22 +46,11 @@ class KnowledgeBasePage(KnowledgePage):
         """Fill self.posts with the logged-in user's ranked home feed."""
         feed = self.forum.get_home_feed(self.user_email, self.team_names())
         self.posts = [entry.post for entry in feed]
+        self.reasons = {entry.post.id: entry.reason for entry in feed}
 
     def show_posts(self):
-        """Clear the post area and draw a card for each post in self.posts."""
-        for widget in self.post_area.winfo_children():
-            widget.destroy()
-
-        columns = 3
-        for i, post in enumerate(self.posts):
-            card = PostCard(self.post_area, self.card_data(post))
-            card.grid(row=i // columns, column=i % columns, padx=10, pady=10)
-
-    def card_data(self, post):
-        """Turn a Post into the dict the old PostCard expects.
-        Temporary: goes away when the new post card arrives in Section 2."""
-        return {"title": post.title, "author": post.author_name,
-                "body": post.preview(), "topic": post.topic.name}
+        """Draw a card for each post in self.posts."""
+        self.post_area.show(self.posts, self.reasons)
 
     # ----- ACTIONS -----
 
@@ -72,9 +65,30 @@ class KnowledgeBasePage(KnowledgePage):
         top.destroy()
         self.on_show()
 
+    def send_reply(self, post, text):
+        """Save a reply to a post, as the logged-in user."""
+        self.forum.add_comment(self.user_email, self.user_name, post.id, text)
+
+    def toggle_solution(self, post, comment):
+        """Mark a reply as the accepted solution, or unmark it if it already is.
+        The forum only lets the post's author do this."""
+        if post.accepted_solution is comment:
+            self.forum.clear_solution(self.user_email, post.id)
+        else:
+            self.forum.mark_solution(self.user_email, post.id, comment.id)
+            
     def on_search_posts(self, event):
-        topic = self.topic_named(self.filter_topic.get())
-        self.posts = search_posts(self.forum.get_all_posts(), self.search.get(), topic.id)
+        """Search when Enter is pressed or a topic is picked.
+        With nothing typed and All topics picked, go back to the feed."""
+        query = self.search.get().strip()
+        topic_name = self.filter_topic.get()
+
+        if not query and topic_name == ALL_TOPICS:
+            self.load_feed()
+        else:
+            topic_id = None if topic_name == ALL_TOPICS else self.topic_named(topic_name).id
+            self.posts = search_posts(self.forum.get_all_posts(), query, topic_id)
+            self.reasons = {}
         self.show_posts()
         
     
