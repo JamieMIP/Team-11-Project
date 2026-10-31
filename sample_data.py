@@ -1,5 +1,15 @@
 # sample_data.py
 
+"""Demo data for the whole app (Part 1 prototype, no database yet).
+
+Delete this file once the real database is connected in Part 2.
+"""
+
+from datetime import datetime, timedelta
+
+from forums import Comment, ForumService, Post, TopicCategory
+
+
 LIVE_USERS = {
     0: {
         "id": 0,
@@ -166,6 +176,108 @@ ALL_TEAMS = {
     }
 }
 
+# ----- KNOWLEDGE BASE -----
+
+
+def build_sample_forum() -> ForumService:
+
+    """Return a ForumService filled with realistic dummy data."""
+    now = datetime.now()
+    forum = ForumService()
+    alice, dilip, liam = LIVE_USERS[0], LIVE_USERS[1], LIVE_USERS[2]
+
+    # ----- topics and the teams they belong to -----
+
+    dev = forum.create_topic(alice["email"], "Software Development",
+                             "Coding standards, tools and how-tos.", is_moderator=True)
+    issues = forum.create_topic(alice["email"], "Software Issues",
+                                "Bugs, errors and their fixes.", is_moderator=True)
+    printing = forum.create_topic(alice["email"], "Printing",
+                                  "Printer setup, drivers and faults.", is_moderator=True)
+    admin = forum.create_topic(alice["email"], "Admin Processes",
+                               "Expenses, leave and other HR processes.",
+                               TopicCategory.NON_TECHNICAL, is_moderator=True)
+    forum.link_topic_to_team(dev.id, "Team 1", is_moderator=True)
+    forum.link_topic_to_team(issues.id, "Team 2", is_moderator=True)
+    forum.link_topic_to_team(printing.id, "Team 3", is_moderator=True)
+
+    # ----- who follows what -----.
+
+    forum.follow_topic(liam["email"], issues.id)
+    forum.follow_topic(dilip["email"], printing.id)
+    forum.follow_topic(dilip["email"], admin.id)
+    forum.follow_topic(alice["email"], admin.id)
+    forum.follow_topic(alice["email"], printing.id)
+
+    # ----- helpers that backdate posts and comments -----
+
+    def backdate(post: Post, days_ago: float) -> Post:
+        post.created_at = now - timedelta(days=days_ago)
+        return post
+
+    def reply(target: Post, author: dict, body: str, days_ago: float) -> Comment:
+        return target.add_comment(author["email"], author["name"], body,
+                                  created_at=now - timedelta(days=days_ago))
+
+    # ----- forum posts -----
+
+    vpn = backdate(forum.create_forum_post(
+        liam["email"], liam["name"], issues.id,
+        "VPN drops every 20 minutes on Windows 11",
+        "Since the last update my VPN disconnects roughly every **20 minutes**. "
+        "Reconnecting works, but it kills long uploads. Anyone else?",
+        ["vpn", "windows"]), days_ago=1.5)
+    reply(vpn, dilip, "Same here on two laptops in the dev team.", days_ago=1.2)
+    fix = reply(vpn, alice, "Turn off *Allow the computer to turn off this device to save "
+                "power* on the network adapter. Fixed it for me.", days_ago=0.8)
+    vpn.mark_solution(liam["email"], fix.id)
+
+    backdate(forum.create_forum_post(
+        alice["email"], alice["name"], dev.id, "Branch naming for the Team 11 repo",
+        "Please name branches `feature/<area>`, for example `feature/personal-todo`. "
+        "See [PEP 8](https://peps.python.org/pep-0008/) for code style.",
+        ["git", "standards"]), days_ago=3)
+
+    jam = backdate(forum.create_forum_post(
+        dilip["email"], dilip["name"], printing.id, "Second floor printer jams on tray 2",
+        "Tray 2 jams with A4 80gsm paper. Tray 1 is fine. "
+        "Is there a setting for paper weight?",
+        ["printer", "hardware"]), days_ago=0.3)
+    reply(jam, alice, "I've logged it with facilities as well.", days_ago=0.1)
+
+    backdate(forum.create_forum_post(
+        liam["email"], liam["name"], issues.id,
+        "Excel crashes when opening shared workbooks",
+        "Excel closes without an error when I open the shared budget workbook "
+        "from the network drive.", ["excel", "office"]), days_ago=6)
+
+    backdate(forum.create_forum_post(
+        alice["email"], alice["name"], admin.id, "How to submit an expenses claim",
+        "# Steps\nFill in the claim form, attach your receipts and send it to "
+        "your manager by the **25th** of the month.", ["expenses", "finance"]), days_ago=2)
+
+    old = backdate(forum.create_forum_post(
+        dilip["email"], dilip["name"], printing.id, "Installing the old printer driver",
+        "Download the driver from the IT portal and run it as administrator.",
+        ["printer", "drivers"]), days_ago=30)
+    forum.remove_post(dilip["email"], old.id)
+
+    # ----- announcements -----
+
+    backdate(forum.create_announcement(
+        alice["email"], alice["name"], printing.id, "New printers arrive on Monday",
+        "The second floor printers are being replaced on **Monday**. "
+        "Please collect any printing by Friday afternoon.",
+        is_moderator=True), days_ago=0.5)
+
+    backdate(forum.create_announcement(
+        dilip["email"], dilip["name"], dev.id, "Code freeze before the demo",
+        "No new features on `main` from Thursday. Bug fixes only.",
+        is_moderator=True), days_ago=1)
+
+    return forum
+
+forum = build_sample_forum()
 
 def get_user_teams(user_id: int) -> dict:
     """Returns only the teams that the given user_id is permitted to view."""
