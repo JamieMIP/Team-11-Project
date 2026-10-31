@@ -37,6 +37,10 @@ class KnowledgePage(Page):
         )
         self.filter_topic.set(ALL_TOPICS)
         self.filter_topic.pack(side="left", padx=(10, 0))
+        
+        # Only shown while one topic is picked (the page packs and hides it)
+        self.follow_button = ctk.CTkButton(top_bar, text="Follow topic", width=130,
+                                           command=self.toggle_follow)
 
         self.add_new_post_button = ctk.CTkButton(top_bar, text="Add New Post", width=130,
                                                 command=self.add_new_post)
@@ -53,46 +57,3 @@ class KnowledgePage(Page):
         self.header.pack_configure(padx=centred_padding(self, event.width))
 
  
-    def add_new_post(self):
-
-        top = ctk.CTkToplevel(self)
-        top.title(f"Create new post")
-        top.geometry("600x450")
-        
-        top.transient(self.winfo_toplevel())   
-        top.after(100, top.lift)               
-        top.after(100, top.focus)
-        
-        ctk.CTkLabel(top, text=f"Create new post", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 0))
-        post_title = ctk.CTkEntry(top, placeholder_text="Post title...")
-        post_title.pack(fill="x", padx=10, pady=10)
-
-        topics = self.forum.get_topics()
-        topic_names = [topic.name for topic in topics]
-
-        self.dropdown = ctk.CTkOptionMenu(
-            top,
-            values=topic_names
-        )
-        self.dropdown.pack(fill="x", padx=10, pady=10)
-
-
-        author_entry = ctk.CTkEntry(top, placeholder_text="Author name here...")
-        author_entry.pack(fill="x", padx=10, pady=10)
-
-        file_entry = ctk.CTkEntry(top, placeholder_text="File additions here...")
-        file_entry.pack(fill="x", padx=10, pady=10)
-
-        post_entry = ctk.CTkTextbox(top, height=120)
-        post_entry.pack(fill="x", padx=10, pady=10)
-
-        ctk.CTkButton(top, text="Submit Post",command=lambda: self.submit_post(
-            post_title.get(),
-            post_entry.get("1.0", "end-1c"),
-            author_entry.get(),
-            file_entry.get(),
-            top
-            )
-        ).pack(pady=10)
-
-
