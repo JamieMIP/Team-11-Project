@@ -4,6 +4,7 @@ import customtkinter as ctk
 
 from forums import Announcement
 from theme_config import ThemeManager
+from forums import Announcement, ForumPost
 
 MAX_WIDTH = 860     # the feed stops growing past this, like Teams does
 GUTTER = 16         # smallest gap either side of the feed
@@ -53,6 +54,7 @@ class Badge(ctk.CTkFrame):
         self.kind = kind
         self.label = ctk.CTkLabel(self, text=text, height=20)
         self.label.pack(padx=10, pady=2)
+        self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
     def apply_theme(self, p, s):
         fill, edge, ink = {
@@ -63,6 +65,143 @@ class Badge(ctk.CTkFrame):
         }[self.kind]
         self.configure(fg_color=fill, border_color=edge)
         self.label.configure(text_color=ink, font=(s["font_family"], 12, "bold"))
+
+class ReplyRow(ctk.CTkFrame):
+    """One reply: small avatar, name and time, then the text. The accepted
+    solution is outlined, and the post's author gets a button to mark or
+    unmark it."""
+
+    def __init__(self, master, comment, is_solution, can_mark, on_toggle):
+        super().__init__(master, corner_radius=10, border_width=1)
+        self.is_solution = is_solution
+
+        self.avatar = ctk.CTkLabel(self, text=initials(comment.author_name),
+                                   width=28, height=28, corner_radius=14)
+        self.avatar.pack(side="left", anchor="n", padx=10, pady=10)
+
+        text = ctk.CTkFrame(self, fg_color="transparent")
+        text.pack(side="left", fill="x", expand=True, pady=8)
+
+        heading = ctk.CTkFrame(text, fg_color="transparent")
+        heading.pack(fill="x")
+        self.name_label = ctk.CTkLabel(heading, text=comment.author_name, height=18)
+        self.name_label.pack(side="left")
+        self.when_label = ctk.CTkLabel(heading, text=comment.created_at.strftime("%d %b %H:%M"),
+                                       height=18)
+        self.when_label.pack(side="left", padx=(8, 0))
+
+        self.solution_label = None
+        if is_solution:
+            self.solution_label = ctk.CTkLabel(heading, text="Accepted solution", height=18)
+            self.solution_label.pack(side="left", padx=(8, 0))
+
+        self.mark_button = None
+        if can_mark:
+            self.mark_button = ctk.CTkButton(
+                heading, text="Unmark solution" if is_solution else "Mark as solution",
+                width=0, height=22, fg_color="transparent", command=on_toggle)
+            self.mark_button.pack(side="right", padx=(0, 10))
+
+        self.body_label = ctk.CTkLabel(text, text=comment.plain_text(), anchor="w", justify="left")
+        self.body_label.pack(fill="x")
+
+        self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+    def set_wrap(self, width):
+        self.body_label.configure(wraplength=width)
+
+    def apply_theme(self, p, s):
+        font = s["font_family"]
+        if self.is_solution:
+            self.configure(fg_color=p["card_bg"], border_color=p["primary"])
+        else:
+            self.configure(fg_color=p["bg"], border_color=p["bg"])
+        self.avatar.configure(fg_color=p["primary"], text_color=p["card_bg"],
+                              font=(font, 11, "bold"))
+        self.name_label.configure(text_color=p["text"], font=(font, 13, "bold"))
+        self.when_label.configure(text_color=p["subtext"], font=(font, 12))
+        self.body_label.configure(text_color=p["text"], font=(font, 13))
+        if self.solution_label is not None:
+            self.solution_label.configure(text_color=p["primary"], font=(font, 12, "bold"))
+        if self.mark_button is not None:
+            self.mark_button.configure(text_color=p["primary"], hover_color=p["card_bg"],
+                                       font=(font, 12))
+
+class ReplyPanel(ctk.CTkFrame):
+    """The replies under a post, oldest first, and a box to write a new one.
+
+    It doesn't talk to the forum itself: on_send(text) and
+    on_toggle_solution(comment) are given to it by the card.
+    """
+
+    def __init__(self, master, post, can_mark, on_send, on_toggle_solution):
+        super().__init__(master)
+        self.post = post
+        self.can_mark = can_mark
+        self.on_send = on_send
+        self.on_toggle_solution = on_toggle_solution
+        self.rows = []
+        self.wrap_width = 400
+
+        self.list_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.list_frame.pack(fill="x", padx=12, pady=(12, 0))
+
+        box = ctk.CTkFrame(self, fg_color="transparent")
+        box.pack(fill="x", padx=12, pady=12)
+        self.entry = ctk.CTkEntry(box, placeholder_text="Write a reply...", height=34)
+        self.entry.pack(side="left", fill="x", expand=True)
+        self.entry.bind("<Return>", lambda event: self.send())
+        self.send_button = ctk.CTkButton(box, text="Send", width=80, height=34,
+                                         command=self.send)
+        self.send_button.pack(side="left", padx=(10, 0))
+
+        self.show_rows()
+        self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+    def show_rows(self):
+        """Redraw every reply (after a new one, or when the solution changes)."""
+        for row in self.rows:
+            row.destroy()
+        solution = getattr(self.post, "accepted_solution", None)   # Announcements have none
+        self.rows = [
+            ReplyRow(self.list_frame, comment, comment is solution, self.can_mark,
+                     on_toggle=lambda c=comment: self.on_toggle_solution(c))
+            for comment in self.post.comments()
+        ]
+        for row in self.rows:
+            row.pack(fill="x", pady=(0, 6))
+            row.set_wrap(self.wrap_width)
+
+    def send(self):
+        """Send what's in the box, unless it's blank."""
+        text = self.entry.get().strip()
+        if not text:
+            return
+        self.entry.delete(0, "end")
+        self.on_send(text)
+
+    def focus_entry(self):
+        self.entry.focus_set()
+
+    def set_wrap(self, card_width):
+        """Work out how wide reply text can be inside a card this wide."""
+        # card padding, panel padding and the reply's avatar all take space
+        self.wrap_width = card_width - 2 * 12 - 2 * 12 - 48 - 12
+        for row in self.rows:
+            row.set_wrap(self.wrap_width)
+
+    def apply_theme(self, p, s):
+        font = s["font_family"]
+        self.configure(fg_color=p["bg"], corner_radius=min(s["card_radius"], 12))
+        self.entry.configure(fg_color=p["entry_bg"], text_color=p["text"],
+                             placeholder_text_color=p["subtext"], border_color=p["border"],
+                             border_width=s["border_width"], corner_radius=s["widget_radius"],
+                             font=(font, 13))
+        self.send_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
+                                   text_color=p["card_bg"], corner_radius=s["widget_radius"],
+                                   font=(font, 13, "bold"))
+        for row in self.rows:
+            row.apply_theme(p, s)
 
 class FeedPostCard(ctk.CTkFrame):
     """One post in the feed: who posted it and when, its topic and status,
