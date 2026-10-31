@@ -128,3 +128,69 @@ class FeedPostCard(ctk.CTkFrame):
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
         for badge in self.badges:
             badge.apply_theme(p, s)
+
+class PostFeed(ctk.CTkScrollableFrame):
+    # The scrolling list of post cards, in a centred column no wider than MAX_WIDTH.
+
+    def __init__(self, master):
+        super().__init__(master, fg_color="transparent")
+        self.cards = []
+        self.empty_label = None
+        self.last_width = None
+
+        self.column = ctk.CTkFrame(self, fg_color="transparent")
+        self.column.pack(fill="x")
+        self.bind("<Configure>", self.on_resize)
+
+        # gui_main's theme pass can't reach inside a scrollable frame,
+        # so listen for theme changes directly (this also styles it now)
+        ThemeManager.subscribe(self.apply_theme)
+        self.bind("<Destroy>", self.on_destroy)
+
+    def on_destroy(self, event):
+        """Stop listening for theme changes once the feed is gone (e.g. on Log Out)."""
+        if event.widget is self:
+            ThemeManager.unsubscribe(self.apply_theme)
+
+    def show(self, posts, reasons):
+        """Replace the cards with one for each post. reasons maps post ID -> why it's in the feed."""
+        for widget in self.column.winfo_children():
+            widget.destroy()
+        self.cards = [FeedPostCard(self.column, post, reasons.get(post.id, "")) for post in posts]
+        for card in self.cards:
+            card.pack(fill="x", pady=(0, 14))
+
+        self.empty_label = None
+        if not posts:
+            self.empty_label = ctk.CTkLabel(self.column, text="No posts to show.")
+            self.empty_label.pack(pady=40)
+            self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+        self.last_width = None      # new cards need wrapping
+        self.on_resize()
+
+    def on_resize(self, event=None):
+        """Centre the column, cap its width and re-wrap the cards' text."""
+        width = self.winfo_width()
+        if width <= 1 or width == self.last_width:
+            return
+        self.last_width = width
+
+        padding = centred_padding(self, width)
+        self.column.pack_configure(padx=padding)
+
+        scale = ctk.ScalingTracker.get_widget_scaling(self)
+        column_width = width / scale - 2 * padding
+        for card in self.cards:
+            card.set_wrap(column_width)
+
+    def apply_theme(self, p, s):
+        # The feed sits straight on the page background. Setting it, then
+        # "transparent" again, makes the scroll area pick up the new colour.
+        self.configure(bg_color=p["bg"])
+        self.configure(fg_color="transparent", scrollbar_button_color=p["border"],
+                       scrollbar_button_hover_color=p["subtext"])
+        if self.empty_label is not None:
+            self.empty_label.configure(text_color=p["subtext"], font=(s["font_family"], 14))
+        for card in self.cards:
+            card.apply_theme(p, s)
