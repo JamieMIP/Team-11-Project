@@ -261,6 +261,14 @@ class FeedPostCard(ctk.CTkFrame):
                                               fg_color="transparent", command=self.start_reply)
             self.reply_button.pack(side="right")
 
+        # Delete: on your own posts, or on every post if you're a Manager
+        self.delete_button = None
+        if page.can_delete(post):
+            self.delete_button = ctk.CTkButton(self.footer, text="Delete", width=70, height=28,
+                                               fg_color="transparent",
+                                               command=lambda: self.page.delete_post(self.post))
+            self.delete_button.pack(side="right")
+
         # The replies are only built the first time someone opens them
         self.replies = None
         self.replies_open = False
@@ -363,14 +371,20 @@ class FeedPostCard(ctk.CTkFrame):
             self.tags_label.configure(text_color=p["primary"], font=(font, 12))
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
+        
         for button in (self.toggle_button, self.reply_button):
             if button is not None:
                 button.configure(text_color=p["primary"], hover_color=p["bg"],
                                  corner_radius=s["widget_radius"], font=(font, 13))
+
+        if self.delete_button is not None:
+            self.delete_button.configure(text_color=p["error"], hover_color=p["bg"],
+                                         corner_radius=s["widget_radius"], font=(font, 13))
         for badge in self.badges:
             badge.apply_theme(p, s)
         if self.replies is not None:
             self.replies.apply_theme(p, s)
+        
 
 class PostFeed(ctk.CTkScrollableFrame):
     # The scrolling list of post cards, in a centred column no wider than MAX_WIDTH.
@@ -414,6 +428,16 @@ class PostFeed(ctk.CTkScrollableFrame):
         self.last_width = None      # new cards need wrapping
         self.on_resize()
         self._parent_canvas.yview_moveto(0)  # start from the top of the new list
+    
+    def remove(self, post):
+        """Take one post's card out (after it's deleted), leaving the rest where they are."""
+        for card in self.cards:
+            if card.post is post:
+                card.destroy()
+                self.cards.remove(card)
+                break
+        if not self.cards:
+            self.show([], {})       # shows "No posts to show."
 
     def on_resize(self, event=None):
         """Centre the column, cap its width and re-wrap the cards' text."""
@@ -440,6 +464,7 @@ class PostFeed(ctk.CTkScrollableFrame):
             self.empty_label.configure(text_color=p["subtext"], font=(s["font_family"], 14))
         for card in self.cards:
             card.apply_theme(p, s)
+
 
 FORUM_POST = "Forum post"
 ANNOUNCEMENT = "Announcement"

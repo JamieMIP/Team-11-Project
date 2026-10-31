@@ -1,3 +1,4 @@
+from tkinter import messagebox
 from pages.template_knowledge_base import ALL_TOPICS, KnowledgePage
 from forums import ForumError
 from pages.knowledge_base_widgets import ANNOUNCEMENT, FORUM_POST, NewPostDialog
@@ -161,5 +162,30 @@ class KnowledgeBasePage(KnowledgePage):
             self.forum.follow_topic(self.user_email, topic.id)
         self.update_follow_button()
         
+    # ----- DELETING POSTS -----
+
+    def can_delete(self, post) -> bool:
+        """Authors can delete their own posts; Managers can delete any post."""
+        return post.is_author(self.user_email) or self.is_manager()
+
+    def delete_post(self, post):
+        """Ask first, then remove the post and take its card out of the feed."""
+        if post.is_author(self.user_email):
+            question = f'Delete your post "{post.title}"?\n\nThis can\'t be undone.'
+        else:
+            question = (f'Remove {post.author_name}\'s post "{post.title}"?\n\n'
+                        "It will be hidden from everyone.")
+        if not messagebox.askyesno("Delete post", question, parent=self.winfo_toplevel()):
+            return
+
+        try:
+            self.forum.remove_post(self.user_email, post.id, is_moderator=self.is_manager())
+        except ForumError as error:
+            messagebox.showerror("Couldn't delete post", str(error), parent=self.winfo_toplevel())
+            return
+
+        if post in self.posts:
+            self.posts.remove(post)
+        self.post_area.remove(post)
     
         
