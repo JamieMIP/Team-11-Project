@@ -41,7 +41,6 @@ class KnowledgeBasePage(KnowledgePage):
         """Runs every time the page is opened: back to the full feed, all topics."""
         self.clear_search()
         self.load_feed()
-        self.show_search_summary(None)
         self.show_posts()
 
     def clear_search(self):
@@ -57,7 +56,6 @@ class KnowledgeBasePage(KnowledgePage):
         feed = self.forum.get_home_feed(self.user_email, self.team_names())
         self.posts = [entry.post for entry in feed]
         self.reasons = {entry.post.id: entry.reason for entry in feed}
-        self.show_search_summary(self.summary_text(query, topic_name))
 
     def show_posts(self):
         """Draw a card for each post in self.posts."""
@@ -133,6 +131,7 @@ class KnowledgeBasePage(KnowledgePage):
 
         if not query and topic_name == ALL_TOPICS:
             self.load_feed()
+            self.show_search_summary(None)
         else:
             words = query.split()
             tags = [word.lstrip("#").lower() for word in words if word.startswith("#")]
@@ -142,6 +141,7 @@ class KnowledgeBasePage(KnowledgePage):
             results = search_posts(self.forum.get_all_posts(), keywords, topic_id)
             self.posts = [post for post in results if all(tag in post.tags for tag in tags)]
             self.reasons = {}
+            self.show_search_summary(self.summary_text(query, topic_name))
         self.show_posts()
         self.update_follow_button()
 
