@@ -41,6 +41,7 @@ class KnowledgeBasePage(KnowledgePage):
         """Runs every time the page is opened: back to the full feed, all topics."""
         self.clear_search()
         self.load_feed()
+        self.show_search_summary(None)
         self.show_posts()
 
     def clear_search(self):
@@ -49,12 +50,14 @@ class KnowledgeBasePage(KnowledgePage):
             self.search.delete(0, "end")
         self.filter_topic.set(ALL_TOPICS)
         self.update_follow_button()
+        self.show_search_summary(None)
 
     def load_feed(self):
         """Fill self.posts with the logged-in user's ranked home feed."""
         feed = self.forum.get_home_feed(self.user_email, self.team_names())
         self.posts = [entry.post for entry in feed]
         self.reasons = {entry.post.id: entry.reason for entry in feed}
+        self.show_search_summary(self.summary_text(query, topic_name))
 
     def show_posts(self):
         """Draw a card for each post in self.posts."""
@@ -150,6 +153,26 @@ class KnowledgeBasePage(KnowledgePage):
         self.filter_topic.set(ALL_TOPICS)
         self.on_search_posts(None)
 
+    def summary_text(self, query, topic_name):
+        """e.g. '2 posts found for "#printer" in Printing'."""
+        count = len(self.posts)
+        text = f"{count} post{'' if count == 1 else 's'} found"
+        if query:
+            text += f' for "{query}"'
+        if topic_name != ALL_TOPICS:
+            text += f" in {topic_name}"
+        return text
+
+    def show_search_summary(self, text):
+        """Show the result count and Clear search while searching; hide them on the feed."""
+        if text is None:
+            self.results_label.pack_forget()
+            self.clear_button.pack_forget()
+        else:
+            self.results_label.configure(text=text)
+            self.clear_button.pack(side="right")
+            self.results_label.pack(side="right", padx=(0, 10))
+
     # ----- FOLLOWING TOPICS -----
 
     def selected_topic(self):
@@ -203,5 +226,8 @@ class KnowledgeBasePage(KnowledgePage):
         if post in self.posts:
             self.posts.remove(post)
         self.post_area.remove(post)
+        if self.results_label.winfo_ismapped():         # keep "N posts found" right
+            self.show_search_summary(self.summary_text(self.search.get().strip(),
+                                                       self.filter_topic.get()))
     
         

@@ -18,8 +18,14 @@ class KnowledgePage(Page):
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(self.header, text=self.title,
-                     font=ctk.CTkFont(size=22, weight="bold")).pack(anchor="w", pady=(0, 10))
+        # Title on the left; while searching, "3 posts found ..." and Clear search on the right
+        title_row = ctk.CTkFrame(self.header, fg_color="transparent")
+        title_row.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(title_row, text=self.title,
+                     font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        self.clear_button = ctk.CTkButton(title_row, text="Clear search", width=100,
+                                          fg_color="transparent", command=self.on_show)
+        self.results_label = ctk.CTkLabel(title_row, text="")
 
         top_bar = ctk.CTkFrame(self.header, fg_color="transparent")
         top_bar.pack(fill="x")
