@@ -431,3 +431,139 @@ class PostFeed(ctk.CTkScrollableFrame):
             self.empty_label.configure(text_color=p["subtext"], font=(s["font_family"], 14))
         for card in self.cards:
             card.apply_theme(p, s)
+
+FORUM_POST = "Forum post"
+ANNOUNCEMENT = "Announcement"
+KINDS_WITH_TAGS = (FORUM_POST,)     # announcements don't take tags
+
+
+class NewPostDialog(ctk.CTkToplevel):
+    """The Add New Post window.
+
+    Managers choose between a forum post and an announcement; everyone else
+    only writes forum posts. It doesn't talk to the forum itself: the page
+    gives it on_submit(kind, title, topic_name, body, tags), which returns
+    an error message to show, or None if the post went up.
+    """
+
+    def __init__(self, master, topic_names, post_kinds, on_submit, start_topic=None):
+        super().__init__(master)
+        self.on_submit = on_submit
+        self.title("Add new post")
+        self.geometry("600x620")
+        self.minsize(460, 560)
+        self.transient(master.winfo_toplevel())
+        self.after(100, self.lift)
+        self.after(100, self.focus)
+
+        form = ctk.CTkFrame(self, fg_color="transparent")
+        form.pack(fill="both", expand=True, padx=24, pady=20)
+
+        self.heading = ctk.CTkLabel(form, text="Add new post", anchor="w")
+        self.heading.pack(fill="x", pady=(0, 12))
+        self.field_labels = []
+
+        # Post type: one button per kind this user is allowed to make
+        self.kind = ctk.StringVar(value=post_kinds[0])
+        self.kind_buttons = []
+        row = ctk.CTkFrame(form, fg_color="transparent")
+        row.pack(fill="x", pady=(0, 12))
+        for kind in post_kinds:
+            button = ctk.CTkRadioButton(row, text=kind, value=kind, variable=self.kind,
+                                        command=self.on_kind_change)
+            button.pack(side="left", padx=(0, 24))
+            self.kind_buttons.append(button)
+
+        self.add_label(form, "Title")
+        self.title_entry = ctk.CTkEntry(form, placeholder_text="What's it about?", height=34)
+        self.title_entry.pack(fill="x", pady=(0, 12))
+
+        self.add_label(form, "Topic")
+        self.topic_menu = ctk.CTkOptionMenu(form, values=topic_names, height=34)
+        self.topic_menu.set(start_topic or topic_names[0])
+        self.topic_menu.pack(fill="x", pady=(0, 12))
+
+        self.add_label(form, "Post")
+        self.body_box = ctk.CTkTextbox(form, height=170, wrap="word")
+        self.body_box.pack(fill="both", expand=True, pady=(0, 12))
+
+        # Tags: forum posts only (announcements don't have them)
+        self.tags_area = ctk.CTkFrame(form, fg_color="transparent")
+        self.tags_area.pack(fill="x")
+        self.add_label(self.tags_area, "Tags")
+        self.tags_entry = ctk.CTkEntry(self.tags_area, height=34,
+                                       placeholder_text="Separated by commas, e.g. vpn, windows (optional)")
+        self.tags_entry.pack(fill="x", pady=(0, 12))
+
+        self.error_label = ctk.CTkLabel(form, text="", anchor="w", justify="left")
+        self.error_label.pack(fill="x")
+        self.on_kind_change() 
+
+        buttons = ctk.CTkFrame(form, fg_color="transparent")
+        buttons.pack(fill="x", pady=(8, 0))
+        self.post_button = ctk.CTkButton(buttons, text="Post", width=110, height=36,
+                                         command=self.submit)
+        self.post_button.pack(side="right")
+        self.cancel_button = ctk.CTkButton(buttons, text="Cancel", width=90, height=36,
+                                           fg_color="transparent", command=self.destroy)
+        self.cancel_button.pack(side="right", padx=(0, 10))
+
+        # gui_main doesn't theme pop-up windows, so this one themes itself
+        ThemeManager.subscribe(self.apply_theme)
+        self.bind("<Destroy>", self.on_destroy)
+    def add_label(self, parent, text):
+        label = ctk.CTkLabel(parent, text=text, anchor="w", height=20)
+        label.pack(fill="x", pady=(0, 4))
+        self.field_labels.append(label)
+
+    def on_kind_change(self):
+        """Show the tags box only for kinds of post that have tags."""
+        if self.kind.get() in KINDS_WITH_TAGS:
+            self.tags_area.pack(fill="x", before=self.error_label)
+        else:
+            self.tags_area.pack_forget()
+
+    def submit(self):
+        """Hand everything to the page. Close if it worked, otherwise show why not."""
+        tags = self.tags_entry.get().split(",") if self.kind.get() in KINDS_WITH_TAGS else []
+        error = self.on_submit(self.kind.get(), self.title_entry.get(), self.topic_menu.get(),
+                               self.body_box.get("1.0", "end-1c"), tags)
+        if error:
+            self.error_label.configure(text=error)
+        else:
+            self.destroy()
+
+    def on_destroy(self, event):
+        if event.widget is self:
+            ThemeManager.unsubscribe(self.apply_theme)
+
+    def apply_theme(self, p, s):
+        font = s["font_family"]
+        radius = s["widget_radius"]
+        self.configure(fg_color=p["bg"])
+        self.heading.configure(text_color=p["text"], font=(font, 18, "bold"))
+        for label in self.field_labels:
+            label.configure(text_color=p["subtext"], font=(font, 12, "bold"))
+        for button in self.kind_buttons:
+            button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
+                             border_color=p["border"], text_color=p["text"], font=(font, 13))
+        for entry in (self.title_entry, self.tags_entry):
+            entry.configure(fg_color=p["entry_bg"], text_color=p["text"],
+                            placeholder_text_color=p["subtext"], border_color=p["border"],
+                            border_width=s["border_width"], corner_radius=radius, font=(font, 13))
+        self.topic_menu.configure(fg_color=p["secondary"], button_color=p["primary"],
+                                  button_hover_color=p["primary_hover"], text_color=p["text"],
+                                  dropdown_fg_color=p["card_bg"], dropdown_text_color=p["text"],
+                                  dropdown_hover_color=p["border"], corner_radius=radius,
+                                  font=(font, 13))
+        self.body_box.configure(fg_color=p["entry_bg"], text_color=p["text"],
+                                border_color=p["border"], border_width=s["border_width"],
+                                corner_radius=radius, font=(font, 13),
+                                scrollbar_button_color=p["border"],
+                                scrollbar_button_hover_color=p["subtext"])
+        self.error_label.configure(text_color=p["error"], font=(font, 13))
+        self.post_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
+                                   text_color=p["card_bg"], corner_radius=radius,
+                                   font=(font, 13, "bold"))
+        self.cancel_button.configure(text_color=p["primary"], hover_color=p["card_bg"],
+                                     corner_radius=radius, font=(font, 13))
