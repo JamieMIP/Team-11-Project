@@ -4,9 +4,9 @@ from theme_config import ThemeManager
 
 class Dashboard(ctk.CTkFrame):
     """Top bar of the app, displays active user details and action button."""
-    def __init__(self, master, user_info=None):
+    def __init__(self, master, user_info=None, on_logout=None):
         super().__init__(master)
-        
+
         size = 40
         self.circle_btn = ctk.CTkButton(
             self,
@@ -16,6 +16,11 @@ class Dashboard(ctk.CTkFrame):
             corner_radius=size // 2
         )
         self.circle_btn.pack(side="right", padx=15, pady=8)
+
+        # Log Out: closes the app window and goes back to the login screen
+        if on_logout is not None:
+            self.logout_btn = ctk.CTkButton(self, text="Log Out", width=90, command=on_logout)
+            self.logout_btn.pack(side="right", padx=(10, 0), pady=8)
 
         # Active user label (updated dynamically from login session)
         self.label = ctk.CTkLabel(
@@ -37,7 +42,7 @@ class Dashboard(ctk.CTkFrame):
 
 class SidePanel(ctk.CTkFrame):
     """Sidebar navigation with dynamic sections for permitted teams."""
-    def __init__(self, master, command=None, team_items=None):
+    def __init__(self, master, command=None, team_items=None, extra_items=None):
         super().__init__(master)
         self.command = command
         self.dropdowns = {}
@@ -67,6 +72,12 @@ class SidePanel(ctk.CTkFrame):
         NavButton(self, "Knowledge Base", command=command).pack(
             fill="x", padx=(10, 20), pady=10
         )
+
+        # 4. Role-based links (My Tasks, Dashboard, New Project, Manage Teams & Roles)
+        for title in extra_items or []:
+            NavButton(self, title, command=command).pack(
+                fill="x", padx=(10, 20), pady=10
+            )
 
     def update_teams(self, team_list: list):
         """Allows dynamic refreshing of team entries based on user permissions."""
@@ -134,67 +145,3 @@ class Dropdown(ctk.CTkFrame):
             self.header.configure(text=f"▶ {self.title}")
 
 
-class PostCard(ctk.CTkFrame):
-    def __init__(self, master, post, size=300):
-        super().__init__(
-            master, 
-            width=size, 
-            height=size,
-            corner_radius=12, 
-            border_width=2,
-            border_color="gray40"
-        )
-        self.pack_propagate(False)
-        self.post = post
-
-        ctk.CTkLabel(
-            self, 
-            text=post["title"], 
-            anchor="w", 
-            justify="left",
-            wraplength=size - 30,
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(fill="x", padx=12, pady=(12, 0))
-
-        ctk.CTkLabel(
-            self, 
-            text=f"by {post['author']}", 
-            anchor="w",
-            text_color="gray"
-        ).pack(fill="x", padx=12)
-
-        ctk.CTkLabel(
-            self, 
-            text=post["body"], 
-            anchor="nw", 
-            justify="left",
-            wraplength=size - 30
-        ).pack(fill="both", expand=True, padx=12, pady=(6, 12))
-
-        ctk.CTkButton(self, text="Expand", width=80, height=30, command=self.expand_post).pack(side="right", padx=10, pady=10)
-        ctk.CTkButton(self, text="Reply", width=80, height=30, command=self.reply_post).pack(side="right", padx=10, pady=10)
-
-    def expand_post(self):
-        top = ctk.CTkToplevel(self)
-        top.title(self.post["title"])
-        top.geometry("400x400")
-        top.transient(self.winfo_toplevel())   
-        top.after(100, top.lift)               
-        top.after(100, top.focus)
-
-        ctk.CTkLabel(top, text=self.post["title"], font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(10, 0))
-        ctk.CTkLabel(top, text=f"by {self.post['author']}", text_color="gray").pack()
-        ctk.CTkLabel(top, text=self.post["body"], wraplength=380).pack(pady=10, padx=10)
-
-    def reply_post(self):
-        top = ctk.CTkToplevel(self)
-        top.title(f"Reply to {self.post['title']}")
-        top.geometry("600x450")
-        top.transient(self.winfo_toplevel())   
-        top.after(100, top.lift)               
-        top.after(100, top.focus)
-
-        ctk.CTkLabel(top, text=f"Replying to: {self.post['title']}", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 0))
-        reply_entry = ctk.CTkEntry(top, placeholder_text="Type your reply here...")
-        reply_entry.pack(fill="x", padx=10, pady=10)
-        ctk.CTkButton(top, text="Submit Reply", command=lambda: top.destroy()).pack(pady=10)
