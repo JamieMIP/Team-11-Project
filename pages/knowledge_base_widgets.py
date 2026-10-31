@@ -405,6 +405,7 @@ class PostFeed(ctk.CTkScrollableFrame):
 
         self.last_width = None      # new cards need wrapping
         self.on_resize()
+        self._parent_canvas.yview_moveto(0)  # start from the top of the new list
 
     def on_resize(self, event=None):
         """Centre the column, cap its width and re-wrap the cards' text."""

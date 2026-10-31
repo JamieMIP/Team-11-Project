@@ -1,4 +1,6 @@
 from pages.template_knowledge_base import ALL_TOPICS, KnowledgePage
+from forums import ForumError
+from pages.knowledge_base_widgets import ANNOUNCEMENT, FORUM_POST, NewPostDialog
 
 from forums.post_search import search_posts
 from organisation import Role, organisation
@@ -36,11 +38,15 @@ class KnowledgeBasePage(KnowledgePage):
 
     def on_show(self):
         """Runs every time the page is opened: back to the full feed, all topics."""
+        self.clear_search()
+        self.load_feed()
+        self.show_posts()
+
+    def clear_search(self):
+        """Empty the search box and go back to All topics."""
         if self.search.get():               # clear old search text, keeping the placeholder
             self.search.delete(0, "end")
         self.filter_topic.set(ALL_TOPICS)
-        self.load_feed()
-        self.show_posts()
 
     def load_feed(self):
         """Fill self.posts with the logged-in user's ranked home feed."""
@@ -58,12 +64,46 @@ class KnowledgeBasePage(KnowledgePage):
         """Find the topic with this name (used by the topic drop-downs)."""
         return next(topic for topic in self.forum.get_topics() if topic.name == name)
 
-    def submit_post(self, title, content, author, files, top):
-        topic = self.topic_named(self.dropdown.get())
-        self.forum.create_forum_post(self.user_email, self.user_name,
-                                     topic.id, title, content)
-        top.destroy()
-        self.on_show()
+    def post_kinds(self) -> list[str]:
+        """The kinds of post the logged-in user can make. Everyone can write
+        forum posts; only Managers can post announcements."""
+        kinds = [FORUM_POST]
+        if self.is_manager():
+            kinds.append(ANNOUNCEMENT)
+        return kinds
+
+    def add_new_post(self):
+        """The Add New Post button. The dialog starts on the topic being
+        filtered, if there is one."""
+        topic_names = [topic.name for topic in self.forum.get_topics()]
+        chosen = self.filter_topic.get()
+        NewPostDialog(self, topic_names,
+                      post_kinds=self.post_kinds(),
+                      on_submit=self.create_post,
+                      start_topic=None if chosen == ALL_TOPICS else chosen)
+
+    def create_post(self, kind, title, topic_name, body, tags):
+        """Make the post as the logged-in user. Returns an error message for
+        the dialog to show (e.g. a blank title), or None if it worked."""
+        topic = self.topic_named(topic_name)
+        try:
+            if kind == ANNOUNCEMENT:
+                post = self.forum.create_announcement(self.user_email, self.user_name,
+                                                      topic.id, title, body,
+                                                      is_moderator=self.is_manager())
+            else:
+                post = self.forum.create_forum_post(self.user_email, self.user_name,
+                                                    topic.id, title, body, tags)
+        except ForumError as error:
+            return str(error)
+
+        # Back to the full feed, with the new post at the top so you can see it went up
+        self.clear_search()
+        self.load_feed()
+        self.posts = [post] + [other for other in self.posts if other is not post]
+        self.reasons[post.id] = "You just posted this"
+        self.show_posts()
+        return None
 
     def send_reply(self, post, text):
         """Save a reply to a post, as the logged-in user."""
