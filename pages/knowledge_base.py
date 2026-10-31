@@ -49,6 +49,7 @@ class KnowledgeBasePage(KnowledgePage):
             self.search.delete(0, "end")
         self.filter_topic.set(ALL_TOPICS)
         self.update_follow_button()
+        self.show_search_summary(None)
 
     def load_feed(self):
         """Fill self.posts with the logged-in user's ranked home feed."""
@@ -121,18 +122,56 @@ class KnowledgeBasePage(KnowledgePage):
             
     def on_search_posts(self, event):
         """Search when Enter is pressed or a topic is picked.
-        With nothing typed and All topics picked, go back to the feed."""
+        With nothing typed and All topics picked, go back to the feed.
+
+        Words starting with # only match posts with that exact tag, so
+        "#printer jam" means: tagged printer, and mentions "jam"."""
         query = self.search.get().strip()
         topic_name = self.filter_topic.get()
 
         if not query and topic_name == ALL_TOPICS:
             self.load_feed()
+            self.show_search_summary(None)
         else:
+            words = query.split()
+            tags = [word.lstrip("#").lower() for word in words if word.startswith("#")]
+            keywords = " ".join(word for word in words if not word.startswith("#"))
             topic_id = None if topic_name == ALL_TOPICS else self.topic_named(topic_name).id
-            self.posts = search_posts(self.forum.get_all_posts(), query, topic_id)
+
+            results = search_posts(self.forum.get_all_posts(), keywords, topic_id)
+            self.posts = [post for post in results if all(tag in post.tags for tag in tags)]
             self.reasons = {}
+            self.show_search_summary(self.summary_text(query, topic_name))
         self.show_posts()
         self.update_follow_button()
+
+    def search_tag(self, tag):
+        """Clicking a tag on a post: show every post with that tag, in any topic."""
+        if self.search.get():
+            self.search.delete(0, "end")
+        self.search.insert(0, f"#{tag}")
+        self.filter_topic.set(ALL_TOPICS)
+        self.on_search_posts(None)
+
+    def summary_text(self, query, topic_name):
+        """e.g. '2 posts found for "#printer" in Printing'."""
+        count = len(self.posts)
+        text = f"{count} post{'' if count == 1 else 's'} found"
+        if query:
+            text += f' for "{query}"'
+        if topic_name != ALL_TOPICS:
+            text += f" in {topic_name}"
+        return text
+
+    def show_search_summary(self, text):
+        """Show the result count and Clear search while searching; hide them on the feed."""
+        if text is None:
+            self.results_label.pack_forget()
+            self.clear_button.pack_forget()
+        else:
+            self.results_label.configure(text=text)
+            self.clear_button.pack(side="right")
+            self.results_label.pack(side="right", padx=(0, 10))
 
     # ----- FOLLOWING TOPICS -----
 
@@ -187,5 +226,8 @@ class KnowledgeBasePage(KnowledgePage):
         if post in self.posts:
             self.posts.remove(post)
         self.post_area.remove(post)
+        if self.results_label.winfo_ismapped():         # keep "N posts found" right
+            self.show_search_summary(self.summary_text(self.search.get().strip(),
+                                                       self.filter_topic.get()))
     
         

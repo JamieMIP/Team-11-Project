@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from base import Page
 from sample_data import forum
+from theme_config import apply_theme_to_tree
 from pages.knowledge_base_widgets import PostFeed, centred_padding
 
 ALL_TOPICS = "All topics"
@@ -18,8 +19,14 @@ class KnowledgePage(Page):
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(self.header, text=self.title,
-                     font=ctk.CTkFont(size=22, weight="bold")).pack(anchor="w", pady=(0, 10))
+        # Title on the left; while searching, "3 posts found ..." and Clear search on the right
+        title_row = ctk.CTkFrame(self.header, fg_color="transparent")
+        title_row.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(title_row, text=self.title,
+                     font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        self.clear_button = ctk.CTkButton(title_row, text="Clear search", width=100,
+                                          fg_color="transparent", command=self.on_show)
+        self.results_label = ctk.CTkLabel(title_row, text="")
 
         top_bar = ctk.CTkFrame(self.header, fg_color="transparent")
         top_bar.pack(fill="x")
@@ -51,6 +58,11 @@ class KnowledgePage(Page):
         self.post_area.pack(fill="both", expand=True)
 
         self.bind("<Configure>", self.on_resize)
+        
+    def apply_theme(self, p=None, s=None):
+        """Theme the header the same way as the rest of the app.
+        The feed, its cards and pop-ups theme themselves, so they're left alone."""
+        apply_theme_to_tree(self.header, p, s)
 
     def on_resize(self, event):
         """Keep the header the same width as the feed column below it."""
