@@ -207,19 +207,21 @@ class FeedPostCard(ctk.CTkFrame):
     """One post in the feed: who posted it and when, its topic and status,
     then the title, the text and how many replies it has."""
 
-    def __init__(self, master, post, reason=""):
+    def __init__(self, master, post, reason, page):
         super().__init__(master)
         self.post = post
+        self.page = page            # the Knowledge Base page, which talks to the forum
+        self.wrap_width = 600
 
         # Top row: avatar, name and time on the left, badges on the right
-        top = ctk.CTkFrame(self, fg_color="transparent")
-        top.pack(fill="x", padx=20, pady=(16, 8))
+        self.top = ctk.CTkFrame(self, fg_color="transparent")
+        self.top.pack(fill="x", padx=20, pady=(16, 8))
 
-        self.avatar = ctk.CTkLabel(top, text=initials(post.author_name),
+        self.avatar = ctk.CTkLabel(self.top, text=initials(post.author_name),
                                    width=36, height=36, corner_radius=18)
         self.avatar.pack(side="left")
 
-        who = ctk.CTkFrame(top, fg_color="transparent")
+        who = ctk.CTkFrame(self.top, fg_color="transparent")
         who.pack(side="left", padx=(12, 0))
         self.name_label = ctk.CTkLabel(who, text=post.author_name, anchor="w", height=18)
         self.name_label.pack(anchor="w")
@@ -229,10 +231,8 @@ class FeedPostCard(ctk.CTkFrame):
         self.when_label.pack(anchor="w")
 
         # Packed from the right, so the status badge ends up furthest right
-        self.badges = [Badge(top, text, kind) for text, kind in status_badges(post)]
-        self.badges.append(Badge(top, post.topic.name, "muted"))
-        for badge in self.badges:
-            badge.pack(side="right", padx=(8, 0))
+        self.badges = []
+        self.show_badges()
 
         # Title and text
         self.title_label = ctk.CTkLabel(self, text=post.title, anchor="w", justify="left")
@@ -240,18 +240,108 @@ class FeedPostCard(ctk.CTkFrame):
         self.body_label = ctk.CTkLabel(self, text=post.plain_text(), anchor="w", justify="left")
         self.body_label.pack(fill="x", padx=20, pady=(4, 14))
 
-        # Bottom strip: how many replies (Section 3 turns this into Show replies / Reply)
+        # Bottom strip: Show/Hide replies on the left, Reply on the right
         self.divider = ctk.CTkFrame(self, height=1, corner_radius=0)
         self.divider.pack(fill="x", padx=2)
-        self.footer_label = ctk.CTkLabel(self, text=reply_summary(post), anchor="w")
-        self.footer_label.pack(fill="x", padx=20, pady=6)
+        self.footer = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer.pack(fill="x", padx=12, pady=4)
+
+        self.footer_label = ctk.CTkLabel(self.footer, text="", anchor="w")
+        self.toggle_button = ctk.CTkButton(self.footer, text="", width=0, height=28,
+                                           fg_color="transparent", command=self.toggle_replies)
+        self.reply_button = None
+        if post.allows_comments():
+            self.reply_button = ctk.CTkButton(self.footer, text="Reply", width=70, height=28,
+                                              fg_color="transparent", command=self.start_reply)
+            self.reply_button.pack(side="right")
+
+        # The replies are only built the first time someone opens them
+        self.replies = None
+        self.replies_open = False
+        self.update_footer()
 
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
+    # ----- PARTS THAT CHANGE -----
+
+    def show_badges(self):
+        """(Re)draw the topic and status badges. Packed from the right,
+        so the status badge ends up furthest right."""
+        for badge in self.badges:
+            badge.destroy()
+        self.badges = [Badge(self.top, text, kind) for text, kind in status_badges(self.post)]
+        self.badges.append(Badge(self.top, self.post.topic.name, "muted"))
+        for badge in self.badges:
+            badge.pack(side="right", padx=(8, 0))
+
+    def update_footer(self):
+        """Show 'Show 2 replies' / 'Hide 2 replies' as a button, or plain text
+        when there's nothing to open."""
+        count = self.post.comment_count()
+        if count and self.post.allows_comments():
+            word = "reply" if count == 1 else "replies"
+            action = "Hide" if self.replies_open else "Show"
+            self.toggle_button.configure(text=f"{action} {count} {word}")
+            self.footer_label.pack_forget()
+            self.toggle_button.pack(side="left")
+        else:
+            self.footer_label.configure(text=reply_summary(self.post))
+            self.toggle_button.pack_forget()
+            self.footer_label.pack(side="left", padx=8)
+
+    def refresh(self):
+        """Redraw after a reply is added or the solution changes."""
+        self.show_badges()
+        self.update_footer()
+        if self.replies is not None:
+            self.replies.show_rows()
+
+    # ----- OPENING AND CLOSING THE REPLIES -----
+
+    def toggle_replies(self):
+        if self.replies_open:
+            self.close_replies()
+        else:
+            self.open_replies()
+
+    def open_replies(self):
+        if self.replies is None:
+            can_mark = isinstance(self.post, ForumPost) and self.post.is_author(self.page.user_email)
+            self.replies = ReplyPanel(self, self.post, can_mark,
+                                      on_send=self.send_reply,
+                                      on_toggle_solution=self.toggle_solution)
+            self.replies.set_wrap(self.wrap_width)
+        self.replies.pack(fill="x", padx=12, pady=(0, 12))
+        self.replies_open = True
+        self.update_footer()
+
+    def close_replies(self):
+        self.replies.pack_forget()
+        self.replies_open = False
+        self.update_footer()
+
+    def start_reply(self):
+        """The Reply button: open the replies and put the cursor in the box."""
+        self.open_replies()
+        self.replies.focus_entry()
+
+    # ----- ACTIONS (the page does the forum work, the card redraws) -----
+
+    def send_reply(self, text):
+        self.page.send_reply(self.post, text)
+        self.refresh()
+
+    def toggle_solution(self, comment):
+        self.page.toggle_solution(self.post, comment)
+        self.refresh()
+
     def set_wrap(self, width):
-        """Wrap the title and text to fit a card this wide."""
+        """Wrap the title, text and replies to fit a card this wide."""
+        self.wrap_width = width
         self.title_label.configure(wraplength=width - 44)
         self.body_label.configure(wraplength=width - 44)
+        if self.replies is not None:
+            self.replies.set_wrap(width)
 
     def apply_theme(self, p, s):
         font = s["font_family"]
@@ -265,14 +355,21 @@ class FeedPostCard(ctk.CTkFrame):
         self.body_label.configure(text_color=p["text"], font=(font, 14))
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
+        for button in (self.toggle_button, self.reply_button):
+            if button is not None:
+                button.configure(text_color=p["primary"], hover_color=p["bg"],
+                                 corner_radius=s["widget_radius"], font=(font, 13))
         for badge in self.badges:
             badge.apply_theme(p, s)
+        if self.replies is not None:
+            self.replies.apply_theme(p, s)
 
 class PostFeed(ctk.CTkScrollableFrame):
     # The scrolling list of post cards, in a centred column no wider than MAX_WIDTH.
 
-    def __init__(self, master):
+    def __init__(self, master, page):
         super().__init__(master, fg_color="transparent")
+        self.page = page
         self.cards = []
         self.empty_label = None
         self.last_width = None
@@ -295,7 +392,8 @@ class PostFeed(ctk.CTkScrollableFrame):
         """Replace the cards with one for each post. reasons maps post ID -> why it's in the feed."""
         for widget in self.column.winfo_children():
             widget.destroy()
-        self.cards = [FeedPostCard(self.column, post, reasons.get(post.id, "")) for post in posts]
+        self.cards = [FeedPostCard(self.column, post, reasons.get(post.id, ""), self.page)
+                    for post in posts]
         for card in self.cards:
             card.pack(fill="x", pady=(0, 14))
 

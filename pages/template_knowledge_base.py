@@ -43,7 +43,7 @@ class KnowledgePage(Page):
         self.add_new_post_button.pack(side="left", padx=(10, 0))
 
         # ----- feed: scrolls, centred, no wider than the cap -----
-        self.post_area = PostFeed(self)
+        self.post_area = PostFeed(self, page=self)
         self.post_area.pack(fill="both", expand=True)
 
         self.bind("<Configure>", self.on_resize)
