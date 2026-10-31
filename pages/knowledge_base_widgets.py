@@ -4,6 +4,7 @@ import customtkinter as ctk
 
 from theme_config import ThemeManager
 from forums import Announcement, ForumPost
+from pages.rich_text import RichText
 
 MAX_WIDTH = 860     # the feed stops growing past this, like Teams does
 GUTTER = 16         # smallest gap either side of the feed
@@ -371,7 +372,7 @@ class FeedPostCard(ctk.CTkFrame):
             self.tags_label.configure(text_color=p["primary"], font=(font, 12))
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
-        
+
         for button in (self.toggle_button, self.reply_button):
             if button is not None:
                 button.configure(text_color=p["primary"], hover_color=p["bg"],
