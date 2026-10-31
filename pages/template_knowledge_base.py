@@ -37,6 +37,10 @@ class KnowledgePage(Page):
         )
         self.filter_topic.set(ALL_TOPICS)
         self.filter_topic.pack(side="left", padx=(10, 0))
+        
+        # Only shown while one topic is picked (the page packs and hides it)
+        self.follow_button = ctk.CTkButton(top_bar, text="Follow topic", width=130,
+                                           command=self.toggle_follow)
 
         self.add_new_post_button = ctk.CTkButton(top_bar, text="Add New Post", width=130,
                                                 command=self.add_new_post)

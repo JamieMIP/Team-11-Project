@@ -47,6 +47,7 @@ class KnowledgeBasePage(KnowledgePage):
         if self.search.get():               # clear old search text, keeping the placeholder
             self.search.delete(0, "end")
         self.filter_topic.set(ALL_TOPICS)
+        self.update_follow_button()
 
     def load_feed(self):
         """Fill self.posts with the logged-in user's ranked home feed."""
@@ -130,6 +131,35 @@ class KnowledgeBasePage(KnowledgePage):
             self.posts = search_posts(self.forum.get_all_posts(), query, topic_id)
             self.reasons = {}
         self.show_posts()
+        self.update_follow_button()
+
+    # ----- FOLLOWING TOPICS -----
+
+    def selected_topic(self):
+        """The topic picked in the filter, or None for All topics."""
+        name = self.filter_topic.get()
+        return None if name == ALL_TOPICS else self.topic_named(name)
+
+    def update_follow_button(self):
+        """Show Follow topic / Unfollow topic while one topic is picked.
+        Hide it for All topics, because there's nothing to follow."""
+        topic = self.selected_topic()
+        if topic is None:
+            self.follow_button.pack_forget()
+            return
+        following = self.forum.is_following(self.user_email, topic.id)
+        self.follow_button.configure(text="Unfollow topic" if following else "Follow topic")
+        self.follow_button.pack(side="left", padx=(10, 0), before=self.add_new_post_button)
+
+    def toggle_follow(self):
+        """Follow the picked topic, or unfollow it if already following.
+        Followed topics rank higher in the user's feed."""
+        topic = self.selected_topic()
+        if self.forum.is_following(self.user_email, topic.id):
+            self.forum.unfollow_topic(self.user_email, topic.id)
+        else:
+            self.forum.follow_topic(self.user_email, topic.id)
+        self.update_follow_button()
         
     
         
