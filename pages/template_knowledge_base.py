@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from base import Page
 from sample_data import forum
+from theme_config import apply_theme_to_tree
 from pages.knowledge_base_widgets import PostFeed, centred_padding
 
 ALL_TOPICS = "All topics"
@@ -57,6 +58,11 @@ class KnowledgePage(Page):
         self.post_area.pack(fill="both", expand=True)
 
         self.bind("<Configure>", self.on_resize)
+        
+    def apply_theme(self, p=None, s=None):
+        """Theme the header the same way as the rest of the app.
+        The feed, its cards and pop-ups theme themselves, so they're left alone."""
+        apply_theme_to_tree(self.header, p, s)
 
     def on_resize(self, event):
         """Keep the header the same width as the feed column below it."""
