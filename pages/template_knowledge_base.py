@@ -1,9 +1,6 @@
 import customtkinter as ctk
 from base import Page
-from forums.post_search import search_posts
-from forums.sample_data import SAMPLE_USERS, build_sample_forum
-from forums.forum_gui_service import ForumService
-from forums import ForumPost
+from sample_data import forum
 
 class KnowledgePage(Page):
     """Layout for knowledge base pages: title, search bar, post area."""
@@ -11,7 +8,7 @@ class KnowledgePage(Page):
 
     def __init__(self, master, app):
 
-        self.forum = build_sample_forum()        
+        self.forum = forum      # the one shared forum, same as every other screen      
         
         super().__init__(master, app)
         ctk.CTkLabel(self, text=self.title,

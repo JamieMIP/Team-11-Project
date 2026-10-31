@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from forums import (AccessDeniedError, Announcement, CommentNotFoundError,
                     ForumPost, ForumService, Post, PostNotFoundError,
                     TopicCategory, TopicNotFoundError, ValidationError)
-from forums.sample_data import SAMPLE_USERS, build_sample_forum
+from sample_data import LIVE_USERS, build_sample_forum
 
 PRIYA = "priya@make-it-all.co.uk"   # a moderator
 SAM = "sam@make-it-all.co.uk"       # writes the forum post in every test
@@ -247,8 +247,8 @@ class TestSampleData(unittest.TestCase):
 
     def test_every_sample_user_gets_a_feed(self):
         forum = build_sample_forum()
-        for user in SAMPLE_USERS.values():
-            self.assertTrue(forum.get_home_feed(user["email"], user["teams"]))
+        for user in LIVE_USERS.values():
+            self.assertTrue(forum.get_home_feed(user["email"]))
 
     def test_sample_data_has_both_kinds_of_post(self):
         kinds = {post.type_label() for post in build_sample_forum().get_all_posts()}

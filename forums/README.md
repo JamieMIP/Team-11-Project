@@ -106,7 +106,7 @@ forum = ForumService()
 For demos, use the sample data instead:
 
 ```python
-from forums.forum_sample_data import SAMPLE_USERS, build_sample_forum
+from sample_data import forum   # the shared demo forum (root sample_data.py)
 
 forum = build_sample_forum()
 user = SAMPLE_USERS["lena"]   # pretend Lena is logged in
@@ -479,7 +479,6 @@ Parameter names are shortened in the diagram (`mod` is `is_moderator`). `Post` i
 | `forum_feed.py` | `FeedRanker` (the scoring) and `FeedEntry` (a post plus its score and reason) |
 | `forum_models.py` | `Topic`, `TopicCategory`, `Comment`, the abstract `Post`, and its subclasses `ForumPost` and `Announcement` |
 | `exceptions.py` | `ForumError` and the errors above |
-| `forum_sample_data.py` | Dummy topics, forum posts, announcements, comments and sample users for demos |
 | `tests/test_forums.py` | Automated tests |
 | `forum_analysis_files/` | Editable flow diagrams (`.drawio`) for Visual Paradigm Online or draw.io |
 
@@ -488,7 +487,6 @@ Parameter names are shortened in the diagram (`mod` is `is_moderator`). `Post` i
 From the repo root:
 
 ```
-python -m forums.forum_sample_data   # print every sample user's home feed
 python -m unittest -v                # run the tests
 ```
 

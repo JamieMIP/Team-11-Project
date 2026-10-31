@@ -1,9 +1,8 @@
 import unittest
 
 from .post_search import search_posts
-from .sample_data import build_sample_forum
 from .forum_models import TopicCategory
-
+from sample_data import build_sample_forum
 
 class PostSearchTests(unittest.TestCase):
     def setUp(self):
