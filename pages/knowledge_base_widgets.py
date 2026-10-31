@@ -238,12 +238,17 @@ class FeedPostCard(ctk.CTkFrame):
         self.body = RichText(self, post.body, size=14)
         self.body.pack(fill="x", padx=20, pady=(4, 14))
 
-        # Tags, if the post has any: "#vpn  #windows"
-        self.tags_label = None
+        # Tags, if the post has any. Clicking one shows every post with that tag.
+        self.tag_buttons = []
         if post.tags:
-            self.tags_label = ctk.CTkLabel(self, text="  ".join(f"#{tag}" for tag in post.tags),
-                                           anchor="w", height=16)
-            self.tags_label.pack(fill="x", padx=20, pady=(0, 12))
+            tag_row = ctk.CTkFrame(self, fg_color="transparent")
+            tag_row.pack(fill="x", padx=14, pady=(0, 10))
+            for tag in post.tags:
+                button = ctk.CTkButton(tag_row, text=f"#{tag}", width=0, height=22,
+                                       fg_color="transparent",
+                                       command=lambda t=tag: self.page.search_tag(t))
+                button.pack(side="left", padx=(0, 2))
+                self.tag_buttons.append(button)
 
         # Bottom strip: Show/Hide replies on the left, Reply on the right
         self.divider = ctk.CTkFrame(self, height=1, corner_radius=0)
@@ -361,8 +366,11 @@ class FeedPostCard(ctk.CTkFrame):
         self.when_label.configure(text_color=p["subtext"], font=(font, 12))
         self.title_label.configure(text_color=p["text"], font=(font, 16, "bold"))
         self.body.apply_theme(p, s, background=p["card_bg"])
-        if self.tags_label is not None:
-            self.tags_label.configure(text_color=p["primary"], font=(font, 12))
+        
+        for button in self.tag_buttons:
+            button.configure(text_color=p["primary"], hover_color=p["bg"],
+                             corner_radius=s["widget_radius"], font=(font, 12))
+
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
 

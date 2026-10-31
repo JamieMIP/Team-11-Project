@@ -121,18 +121,34 @@ class KnowledgeBasePage(KnowledgePage):
             
     def on_search_posts(self, event):
         """Search when Enter is pressed or a topic is picked.
-        With nothing typed and All topics picked, go back to the feed."""
+        With nothing typed and All topics picked, go back to the feed.
+
+        Words starting with # only match posts with that exact tag, so
+        "#printer jam" means: tagged printer, and mentions "jam"."""
         query = self.search.get().strip()
         topic_name = self.filter_topic.get()
 
         if not query and topic_name == ALL_TOPICS:
             self.load_feed()
         else:
+            words = query.split()
+            tags = [word.lstrip("#").lower() for word in words if word.startswith("#")]
+            keywords = " ".join(word for word in words if not word.startswith("#"))
             topic_id = None if topic_name == ALL_TOPICS else self.topic_named(topic_name).id
-            self.posts = search_posts(self.forum.get_all_posts(), query, topic_id)
+
+            results = search_posts(self.forum.get_all_posts(), keywords, topic_id)
+            self.posts = [post for post in results if all(tag in post.tags for tag in tags)]
             self.reasons = {}
         self.show_posts()
         self.update_follow_button()
+
+    def search_tag(self, tag):
+        """Clicking a tag on a post: show every post with that tag, in any topic."""
+        if self.search.get():
+            self.search.delete(0, "end")
+        self.search.insert(0, f"#{tag}")
+        self.filter_topic.set(ALL_TOPICS)
+        self.on_search_posts(None)
 
     # ----- FOLLOWING TOPICS -----
 
