@@ -4,6 +4,7 @@ import customtkinter as ctk
 
 from theme_config import ThemeManager
 from forums import Announcement, ForumPost
+from pages.rich_text import FormatBar, RichText
 
 MAX_WIDTH = 860     # the feed stops growing past this, like Teams does
 GUTTER = 16         # smallest gap either side of the feed
@@ -101,25 +102,24 @@ class ReplyRow(ctk.CTkFrame):
                 width=0, height=22, fg_color="transparent", command=on_toggle)
             self.mark_button.pack(side="right", padx=(0, 10))
 
-        self.body_label = ctk.CTkLabel(text, text=comment.plain_text(), anchor="w", justify="left")
-        self.body_label.pack(fill="x")
+        self.body = RichText(text, comment.body, size=13)
+        self.body.pack(fill="x")
 
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
-    def set_wrap(self, width):
-        self.body_label.configure(wraplength=width)
 
     def apply_theme(self, p, s):
         font = s["font_family"]
-        if self.is_solution:
-            self.configure(fg_color=p["card_bg"], border_color=p["primary"])
-        else:
-            self.configure(fg_color=p["bg"], border_color=p["bg"])
+        fill = p["card_bg"] if self.is_solution else p["bg"]
+        edge = p["primary"] if self.is_solution else p["bg"]
+        self.configure(fg_color=fill, border_color=edge)
+
         self.avatar.configure(fg_color=p["primary"], text_color=p["card_bg"],
                               font=(font, 11, "bold"))
         self.name_label.configure(text_color=p["text"], font=(font, 13, "bold"))
         self.when_label.configure(text_color=p["subtext"], font=(font, 12))
-        self.body_label.configure(text_color=p["text"], font=(font, 13))
+        self.body.apply_theme(p, s, background=fill)
+
         if self.solution_label is not None:
             self.solution_label.configure(text_color=p["primary"], font=(font, 12, "bold"))
         if self.mark_button is not None:
@@ -140,7 +140,6 @@ class ReplyPanel(ctk.CTkFrame):
         self.on_send = on_send
         self.on_toggle_solution = on_toggle_solution
         self.rows = []
-        self.wrap_width = 400
 
         self.list_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.list_frame.pack(fill="x", padx=12, pady=(12, 0))
@@ -153,6 +152,10 @@ class ReplyPanel(ctk.CTkFrame):
         self.send_button = ctk.CTkButton(box, text="Send", width=80, height=34,
                                          command=self.send)
         self.send_button.pack(side="left", padx=(10, 0))
+
+        # B / I / Code / Link buttons for the reply box, just above it
+        self.format_bar = FormatBar(self, self.entry)
+        self.format_bar.pack(fill="x", padx=12, pady=(6, 0), before=box)
 
         self.show_rows()
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
@@ -169,7 +172,6 @@ class ReplyPanel(ctk.CTkFrame):
         ]
         for row in self.rows:
             row.pack(fill="x", pady=(0, 6))
-            row.set_wrap(self.wrap_width)
 
     def send(self):
         """Send what's in the box, unless it's blank."""
@@ -182,12 +184,6 @@ class ReplyPanel(ctk.CTkFrame):
     def focus_entry(self):
         self.entry.focus_set()
 
-    def set_wrap(self, card_width):
-        """Work out how wide reply text can be inside a card this wide."""
-        # card padding, panel padding and the reply's avatar all take space
-        self.wrap_width = card_width - 2 * 12 - 2 * 12 - 48 - 12
-        for row in self.rows:
-            row.set_wrap(self.wrap_width)
 
     def apply_theme(self, p, s):
         font = s["font_family"]
@@ -199,6 +195,8 @@ class ReplyPanel(ctk.CTkFrame):
         self.send_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
                                    text_color=p["card_bg"], corner_radius=s["widget_radius"],
                                    font=(font, 13, "bold"))
+                                   
+        self.format_bar.apply_theme(p, s)
         for row in self.rows:
             row.apply_theme(p, s)
 
@@ -210,7 +208,7 @@ class FeedPostCard(ctk.CTkFrame):
         super().__init__(master)
         self.post = post
         self.page = page            # the Knowledge Base page, which talks to the forum
-        self.wrap_width = 600
+
 
         # Top row: avatar, name and time on the left, badges on the right
         self.top = ctk.CTkFrame(self, fg_color="transparent")
@@ -236,8 +234,9 @@ class FeedPostCard(ctk.CTkFrame):
         # Title and text
         self.title_label = ctk.CTkLabel(self, text=post.title, anchor="w", justify="left")
         self.title_label.pack(fill="x", padx=20)
-        self.body_label = ctk.CTkLabel(self, text=post.plain_text(), anchor="w", justify="left")
-        self.body_label.pack(fill="x", padx=20, pady=(4, 14))
+
+        self.body = RichText(self, post.body, size=14)
+        self.body.pack(fill="x", padx=20, pady=(4, 14))
 
         # Tags, if the post has any: "#vpn  #windows"
         self.tags_label = None
@@ -324,7 +323,6 @@ class FeedPostCard(ctk.CTkFrame):
             self.replies = ReplyPanel(self, self.post, can_mark,
                                       on_send=self.send_reply,
                                       on_toggle_solution=self.toggle_solution)
-            self.replies.set_wrap(self.wrap_width)
         self.replies.pack(fill="x", padx=12, pady=(0, 12))
         self.replies_open = True
         self.update_footer()
@@ -350,12 +348,8 @@ class FeedPostCard(ctk.CTkFrame):
         self.refresh()
 
     def set_wrap(self, width):
-        """Wrap the title, text and replies to fit a card this wide."""
-        self.wrap_width = width
+        """Wrap the title to fit a card this wide (the rich text wraps itself)."""
         self.title_label.configure(wraplength=width - 44)
-        self.body_label.configure(wraplength=width - 44)
-        if self.replies is not None:
-            self.replies.set_wrap(width)
 
     def apply_theme(self, p, s):
         font = s["font_family"]
@@ -366,12 +360,12 @@ class FeedPostCard(ctk.CTkFrame):
         self.name_label.configure(text_color=p["text"], font=(font, 14, "bold"))
         self.when_label.configure(text_color=p["subtext"], font=(font, 12))
         self.title_label.configure(text_color=p["text"], font=(font, 16, "bold"))
-        self.body_label.configure(text_color=p["text"], font=(font, 14))
+        self.body.apply_theme(p, s, background=p["card_bg"])
         if self.tags_label is not None:
             self.tags_label.configure(text_color=p["primary"], font=(font, 12))
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
-        
+
         for button in (self.toggle_button, self.reply_button):
             if button is not None:
                 button.configure(text_color=p["primary"], hover_color=p["bg"],
@@ -519,6 +513,8 @@ class NewPostDialog(ctk.CTkToplevel):
 
         self.add_label(form, "Post")
         self.body_box = ctk.CTkTextbox(form, height=170, wrap="word")
+        self.format_bar = FormatBar(form, self.body_box)
+        self.format_bar.pack(fill="x", pady=(0, 6))
         self.body_box.pack(fill="both", expand=True, pady=(0, 12))
 
         # Tags: forum posts only (announcements don't have them)
@@ -595,6 +591,8 @@ class NewPostDialog(ctk.CTkToplevel):
                                 corner_radius=radius, font=(font, 13),
                                 scrollbar_button_color=p["border"],
                                 scrollbar_button_hover_color=p["subtext"])
+
+        self.format_bar.apply_theme(p, s)
         self.error_label.configure(text_color=p["error"], font=(font, 13))
         self.post_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
                                    text_color=p["card_bg"], corner_radius=radius,
