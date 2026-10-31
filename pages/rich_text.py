@@ -11,6 +11,7 @@ import tkinter as tk
 import webbrowser
 
 import customtkinter as ctk
+from theme_config import ThemeManager
 
 # One match per piece of formatting, tried left to right.
 INLINE = re.compile(
@@ -118,3 +119,72 @@ class RichText(tk.Text):
         self.tag_config("link", foreground=p["primary"], underline=True)
         self.last_width = None      # font changed, so the height needs working out again
         self.fit_height()
+
+def wrap_selection(box, before, after, placeholder):
+    """Put markers round the selected text, e.g. **bold**. With nothing
+    selected, insert them round a placeholder word and select it, ready
+    to type over. Works on the post box (CTkTextbox) and the reply box
+    (CTkEntry)."""
+    if isinstance(box, ctk.CTkTextbox):
+        selected = box.tag_ranges("sel")
+        if selected:
+            start = box.index(selected[0])
+            chosen = box.get(selected[0], selected[1])
+            box.delete(selected[0], selected[1])
+        else:
+            start = box.index("insert")
+            chosen = placeholder
+        box.insert(start, before + chosen + after)
+        first = box.index(f"{start}+{len(before)}c")
+        last = box.index(f"{first}+{len(chosen)}c")
+        box.tag_remove("sel", "1.0", "end")
+        box.tag_add("sel", first, last)
+        box.mark_set("insert", last)
+    else:
+        if box.select_present():
+            start, end = box.index("sel.first"), box.index("sel.last")
+            chosen = box.get()[start:end]
+            box.delete(start, end)
+        else:
+            start = box.index("insert") if box.get() else 0
+            chosen = placeholder
+        box.insert(start, before + chosen + after)
+        first = start + len(before)
+        box.select_range(first, first + len(chosen))
+        box.icursor(first + len(chosen))
+    box.focus_set()
+
+
+class FormatBar(ctk.CTkFrame):
+    """A row of small buttons (B, I, Code, Link) that format the text in `box`."""
+
+    BUTTONS = (
+        # text on the button, marker before, marker after, placeholder
+        ("B", "**", "**", "bold text"),
+        ("I", "*", "*", "italic text"),
+        ("Code", "`", "`", "code"),
+        ("Link", "[", "](https://)", "link text"),
+    )
+
+    def __init__(self, master, box):
+        super().__init__(master, fg_color="transparent")
+        self.buttons = []
+        for label, before, after, placeholder in self.BUTTONS:
+            button = ctk.CTkButton(
+                self, text=label, width=44 if len(label) == 1 else 56, height=26,
+                fg_color="transparent", border_width=1,
+                command=lambda b=before, a=after, p=placeholder: wrap_selection(box, b, a, p))
+            button.pack(side="left", padx=(0, 6))
+            self.buttons.append(button)
+        self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
+
+    def apply_theme(self, p, s):
+        font = s["font_family"]
+        for button in self.buttons:
+            button.configure(text_color=p["text"], hover_color=p["border"],
+                             border_color=p["border"], corner_radius=s["widget_radius"])
+        bold, italic, code, link = self.buttons
+        bold.configure(font=(font, 13, "bold"))
+        italic.configure(font=(font, 13, "italic"))
+        code.configure(font=("Courier", 13))
+        link.configure(font=(font, 13, "underline"))

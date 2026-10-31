@@ -4,7 +4,7 @@ import customtkinter as ctk
 
 from theme_config import ThemeManager
 from forums import Announcement, ForumPost
-from pages.rich_text import RichText
+from pages.rich_text import FormatBar, RichText
 
 MAX_WIDTH = 860     # the feed stops growing past this, like Teams does
 GUTTER = 16         # smallest gap either side of the feed
@@ -153,6 +153,10 @@ class ReplyPanel(ctk.CTkFrame):
                                          command=self.send)
         self.send_button.pack(side="left", padx=(10, 0))
 
+        # B / I / Code / Link buttons for the reply box, just above it
+        self.format_bar = FormatBar(self, self.entry)
+        self.format_bar.pack(fill="x", padx=12, pady=(6, 0), before=box)
+
         self.show_rows()
         self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
@@ -191,6 +195,8 @@ class ReplyPanel(ctk.CTkFrame):
         self.send_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
                                    text_color=p["card_bg"], corner_radius=s["widget_radius"],
                                    font=(font, 13, "bold"))
+                                   
+        self.format_bar.apply_theme(p, s)
         for row in self.rows:
             row.apply_theme(p, s)
 
@@ -507,6 +513,8 @@ class NewPostDialog(ctk.CTkToplevel):
 
         self.add_label(form, "Post")
         self.body_box = ctk.CTkTextbox(form, height=170, wrap="word")
+        self.format_bar = FormatBar(form, self.body_box)
+        self.format_bar.pack(fill="x", pady=(0, 6))
         self.body_box.pack(fill="both", expand=True, pady=(0, 12))
 
         # Tags: forum posts only (announcements don't have them)
@@ -583,6 +591,8 @@ class NewPostDialog(ctk.CTkToplevel):
                                 corner_radius=radius, font=(font, 13),
                                 scrollbar_button_color=p["border"],
                                 scrollbar_button_hover_color=p["subtext"])
+
+        self.format_bar.apply_theme(p, s)
         self.error_label.configure(text_color=p["error"], font=(font, 13))
         self.post_button.configure(fg_color=p["primary"], hover_color=p["primary_hover"],
                                    text_color=p["card_bg"], corner_radius=radius,
