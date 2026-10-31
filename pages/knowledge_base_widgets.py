@@ -2,7 +2,6 @@
 
 import customtkinter as ctk
 
-from forums import Announcement
 from theme_config import ThemeManager
 from forums import Announcement, ForumPost
 
@@ -240,6 +239,13 @@ class FeedPostCard(ctk.CTkFrame):
         self.body_label = ctk.CTkLabel(self, text=post.plain_text(), anchor="w", justify="left")
         self.body_label.pack(fill="x", padx=20, pady=(4, 14))
 
+        # Tags, if the post has any: "#vpn  #windows"
+        self.tags_label = None
+        if post.tags:
+            self.tags_label = ctk.CTkLabel(self, text="  ".join(f"#{tag}" for tag in post.tags),
+                                           anchor="w", height=16)
+            self.tags_label.pack(fill="x", padx=20, pady=(0, 12))
+
         # Bottom strip: Show/Hide replies on the left, Reply on the right
         self.divider = ctk.CTkFrame(self, height=1, corner_radius=0)
         self.divider.pack(fill="x", padx=2)
@@ -353,6 +359,8 @@ class FeedPostCard(ctk.CTkFrame):
         self.when_label.configure(text_color=p["subtext"], font=(font, 12))
         self.title_label.configure(text_color=p["text"], font=(font, 16, "bold"))
         self.body_label.configure(text_color=p["text"], font=(font, 14))
+        if self.tags_label is not None:
+            self.tags_label.configure(text_color=p["primary"], font=(font, 12))
         self.divider.configure(fg_color=p["border"])
         self.footer_label.configure(text_color=p["subtext"], font=(font, 12))
         for button in (self.toggle_button, self.reply_button):
