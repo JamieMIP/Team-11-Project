@@ -140,7 +140,7 @@ class PostFeed(ctk.CTkScrollableFrame):
 
         self.column = ctk.CTkFrame(self, fg_color="transparent")
         self.column.pack(fill="x")
-        self.bind("<Configure>", self.on_resize)
+        self.bind("<Configure>", self.on_resize, add="+")
 
         # gui_main's theme pass can't reach inside a scrollable frame,
         # so listen for theme changes directly (this also styles it now)
