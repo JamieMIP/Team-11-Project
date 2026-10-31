@@ -52,6 +52,23 @@ class PostSearchTests(unittest.TestCase):
 
         self.assertEqual(results, [post])
 
+    def test_finds_word_in_tags(self):
+        post = self.forum.create_forum_post(
+            "owen@example.com",
+            "Owen",
+            self.forum.get_topics()[0].id,
+            "Example question",
+            "Nothing special in the body.",
+            tags=["uniquetagword"],
+        )
+
+        results = search_posts(
+            self.forum.get_all_posts(),
+            "uniquetagword",
+        )
+
+        self.assertEqual(results, [post])
+
     def test_requires_all_words(self):
         results = search_posts(self.posts, "vpn zzznomatchingpostzzz")
 

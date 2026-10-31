@@ -12,7 +12,7 @@ def search_posts(
     """Return posts matching the query and any selected filters.
 
     Matching ignores capitalisation and extra spaces.
-    Every search word must appear in the title or body.
+    Every search word must appear in the title, body or tags.
     Results retain their original order.
     """
     search_words = query.casefold().split()
@@ -25,7 +25,7 @@ def search_posts(
         if category is not None and post.topic.category != category:
             continue
 
-        searchable_text = f"{post.title} {post.plain_text()}".casefold()
+        searchable_text = f"{post.title} {post.plain_text()} {' '.join(post.tags)}".casefold()
 
         if all(word in searchable_text for word in search_words):
             matching_posts.append(post)
