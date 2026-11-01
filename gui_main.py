@@ -11,20 +11,22 @@ from pages.my_tasks import MyTasksPage
 from pages.manager_dashboard import DashboardPage
 from pages.new_project import NewProjectPage
 from pages.manage_teams import ManageTeamsPage
+from pages.themes_page import ThemesPage
 
 from theme_config import ThemeManager
-from theme_studio import ThemeStudioWindow
 from sample_data import LIVE_USERS
 from organisation import Permission, organisation
 
 # Base static page bindings (Teams are loaded dynamically per-team key)
 PAGES = {
     "Personal To-do List": PersonalListPage,
+    "List 1": PersonalListPage,
     "Knowledge Base": KnowledgeBasePage,
     "My Tasks": MyTasksPage,
     "Dashboard": DashboardPage,
     "New Project": NewProjectPage,
     "Manage Teams & Roles": ManageTeamsPage,
+    "Themes": ThemesPage,
 }
 
 
@@ -37,6 +39,7 @@ def nav_items_for(email: str) -> list[str]:
         items.append("New Project")
     if organisation.can(email, Permission.CREATE_TEAMS):
         items.append("Manage Teams & Roles")
+    items.append("Themes")
     return items
 
 
@@ -83,7 +86,7 @@ class App(ctk.CTk):
         # 2. SidePanel with only the permitted team options
         permitted_team_names = list(self.allowed_teams.keys())
         self.sidePanel = SidePanel(
-            self, 
+            self,
             command=self.show_page,
             team_items=permitted_team_names,
             extra_items=nav_items_for(self.current_user["email"])
@@ -101,12 +104,11 @@ class App(ctk.CTk):
         self.current = None
 
         # Automatically open the first available team on login
-        initial_page = permitted_team_names[0] if permitted_team_names else "List 1"
+        initial_page = permitted_team_names[0] if permitted_team_names else "Personal To-do List"
         self.show_page(initial_page)
 
-        # Live Theme Engine integration
+        # Live Theme Engine integration (ThemeStudioWindow removed; now inside "Themes" page)
         ThemeManager.subscribe(self.apply_theme)
-        self.theme_studio = ThemeStudioWindow(self)
 
     def show_page(self, name):
         if self.current:
@@ -164,15 +166,31 @@ class App(ctk.CTk):
             if isinstance(child, ctk.CTkToplevel):
                 continue
 
+            # Do not overwrite miniature preview boxes on the Themes gallery page
+            if getattr(child, "_skip_global_theme", False):
+                continue
+
+            # Delegate to custom apply_theme if defined (e.g., SidePanel or Page)
             if hasattr(child, "apply_theme") and callable(child.apply_theme):
                 child.apply_theme(p, s)
                 continue
 
             try:
+                # 1. Buttons
                 if isinstance(child, ctk.CTkButton):
-                    # Keep transparent text nav buttons transparent
+                    txt = str(child.cget("text")).strip()
                     if child.cget("fg_color") == "transparent":
                         child.configure(text_color=p["text"])
+                    elif txt == "AM" or child.cget("width") == child.cget("height"):
+                        # Keep avatar circle button round
+                        child.configure(
+                            fg_color=p["primary"],
+                            hover_color=p["primary_hover"],
+                            text_color=btn_text,
+                            border_width=b_width,
+                            border_color=p["border"],
+                            font=(font_fam, 13, "bold")
+                        )
                     else:
                         child.configure(
                             fg_color=p["primary"],
@@ -183,6 +201,8 @@ class App(ctk.CTk):
                             border_color=p["border"],
                             font=(font_fam, 13, "bold")
                         )
+
+                # 2. Entries & Textboxes
                 elif isinstance(child, ctk.CTkEntry):
                     child.configure(
                         fg_color=p["entry_bg"],
@@ -193,6 +213,17 @@ class App(ctk.CTk):
                         border_width=b_width,
                         font=(font_fam, 13)
                     )
+                elif isinstance(child, ctk.CTkTextbox):
+                    child.configure(
+                        fg_color=p["entry_bg"],
+                        text_color=p["text"],
+                        border_color=p["border"],
+                        corner_radius=w_radius,
+                        border_width=b_width,
+                        font=(font_fam, 13)
+                    )
+
+                # 3. OptionMenus & ComboBoxes
                 elif isinstance(child, (ctk.CTkOptionMenu, ctk.CTkComboBox)):
                     child.configure(
                         fg_color=p["secondary"],
@@ -202,6 +233,8 @@ class App(ctk.CTk):
                         corner_radius=w_radius,
                         font=(font_fam, 13)
                     )
+
+                # 4. CheckBoxes, Switches, RadioButtons
                 elif isinstance(child, (ctk.CTkCheckBox, ctk.CTkSwitch, ctk.CTkRadioButton)):
                     child.configure(
                         fg_color=p["primary"],
@@ -210,20 +243,75 @@ class App(ctk.CTk):
                         border_color=p["border"],
                         font=(font_fam, 13)
                     )
+
+                # 5. Progress Bars (Styles progress bars on Manager Dashboard & Team Projects)
+                elif isinstance(child, ctk.CTkProgressBar):
+                    child.configure(
+                        progress_color=p["primary"],
+                        fg_color=p["entry_bg"],
+                        border_color=p["border"],
+                        border_width=max(0, b_width - 1),
+                        corner_radius=w_radius
+                    )
+
+                # 6. Labels (Preserves CTkFont sizes while applying font_family & status colours)
                 elif isinstance(child, ctk.CTkLabel):
-                    child.configure(text_color=p["text"])
-                elif isinstance(child, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                    txt = str(child.cget("text"))
+                    if "[OVERDUE" in txt or "[OVERLOADED]" in txt or "[ACCESS ENDED]" in txt:
+                        child.configure(text_color=p["error"])
+                    elif txt.startswith("Logged in:") or txt == "Current selection":
+                        child.configure(text_color=p["subtext"])
+                    else:
+                        child.configure(text_color=p["text"])
+
+                    curr_font = child.cget("font")
+                    if isinstance(curr_font, ctk.CTkFont):
+                        curr_font.configure(family=font_fam)
+                    elif isinstance(curr_font, tuple) and len(curr_font) >= 2:
+                        child.configure(font=(font_fam, *curr_font[1:]))
+
+                # 7. Scrollable Frames (Removes the dark grey background on Manager Dashboard)
+                elif isinstance(child, ctk.CTkScrollableFrame):
+                    child.configure(
+                        fg_color="transparent",
+                        scrollbar_button_color=p["secondary"],
+                        scrollbar_button_hover_color=p["primary"]
+                    )
+
+                # 8. Standard Frames & Cards
+                elif isinstance(child, ctk.CTkFrame):
                     if child is not self.content and child.cget("fg_color") != "transparent":
-                        child.configure(
-                            fg_color=p["card_bg"],
-                            border_color=p["border"],
-                            corner_radius=s["card_radius"],
-                            border_width=b_width
-                        )
+                        # Remember original border_width from creation (0 = section header, 1 = card, 2 = overdue)
+                        if not hasattr(child, "_orig_border"):
+                            child._orig_border = child.cget("border_width")
+
+                        orig_b = child._orig_border
+                        if orig_b == 0:
+                            child.configure(
+                                fg_color=p["card_bg"],
+                                border_color=p["border"],
+                                corner_radius=0 if child is self.dashboard else s["card_radius"],
+                                border_width=0
+                            )
+                        elif orig_b >= 2:
+                            child.configure(
+                                fg_color=p["card_bg"],
+                                border_color=p["error"],
+                                corner_radius=s["card_radius"],
+                                border_width=max(2, b_width)
+                            )
+                        else:
+                            child.configure(
+                                fg_color=p["card_bg"],
+                                border_color=p["border"],
+                                corner_radius=s["card_radius"],
+                                border_width=b_width
+                            )
             except Exception:
                 pass
 
-            if isinstance(child, (ctk.CTkFrame, ctk.CTkScrollableFrame, ctk.CTkTabview)):
+            # Traverse all child containers (including raw tkinter.Canvas inside CTkScrollableFrame)
+            if child.winfo_children():
                 self._style_widget_tree(child, p, s)
 
 
