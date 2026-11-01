@@ -125,6 +125,7 @@ class App(ctk.CTk):
 
         self.current = self.pages[name]
         self.current.pack(fill="both", expand=True)
+        self.sidePanel.select(name)
 
         if hasattr(self.current, "on_show") and callable(self.current.on_show):
             self.current.on_show()

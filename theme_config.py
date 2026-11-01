@@ -13,8 +13,8 @@ COLOR_PALETTES = {
         "subtext": "#94A3B8",
         "entry_bg": "#0F172A",
         "border": "#334155",
-        "primary": "#3B82F6",
-        "primary_hover": "#2563EB",
+        "primary": "#2D4B73",
+        "primary_hover": "#3B82F6",
         "secondary": "#475569",
         "secondary_hover": "#334155",
         "error": "#EF4444"
