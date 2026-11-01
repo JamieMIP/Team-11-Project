@@ -28,13 +28,26 @@ class Page(ctk.CTkFrame):
     def on_show(self):
         self.apply_theme()
 
+    def redraw_theme(self):
+        """Called by OrgPage subclasses (like manager_dashboard.py) at the end of refresh()."""
+        self.apply_theme()
+
     def apply_theme(self, p=None, s=None):
-        """Override in subclasses if needed, or leave to global styling."""
-        pass
+        """Styles all widgets inside this page using the main App's widget tree styler."""
+        if p is None:
+            p = ThemeManager.get_palette()
+        if s is None:
+            s = ThemeManager.get_style()
+        if hasattr(self, "app") and hasattr(self.app, "_style_widget_tree"):
+            self.app._style_widget_tree(self, p, s)
 
 
 class PlaceholderPage(Page):
     def __init__(self, master, app, name="Page"):
         super().__init__(master, app)
-        self.label = ctk.CTkLabel(self, text=f"{name} (Coming Soon)", font=ctk.CTkFont(size=20, weight="bold"))
+        self.label = ctk.CTkLabel(
+            self,
+            text=f"{name} (Coming Soon)",
+            font=ctk.CTkFont(size=20, weight="bold")
+        )
         self.label.pack(expand=True)
