@@ -1,7 +1,8 @@
 import customtkinter as ctk
 from base import Page
 from theme_config import ThemeManager
-
+import os
+from PIL import Image
 
 
 # Sidebar colours. A palette can override these with nav_bg / nav_hover / nav_selected
@@ -76,67 +77,103 @@ class Dashboard(ctk.CTkFrame):
         self.label.configure(text=f"{name}  •  {role}")
 
 
-class SidePanel(ctk.CTkFrame):
-    """Sidebar navigation with dynamic sections for permitted teams.
 
-    Colours, corner radius, button height and font all come from ThemeManager,
+class SidePanel(ctk.CTkFrame):
+    """Sidebar navigation with icon-based buttons for each main section.
+
+    Colours, corner radius and font all come from ThemeManager,
     so the panel restyles itself whenever the palette or style changes.
     """
-    def __init__(self, master, command=None, team_items=None, extra_items=None, width=230):
+
+    # Icons used for each navigation button
+    ICON_MAP = {
+        "Personal To-do List": "list-checks",
+        "Team To-do List": "user-group",
+        "Knowledge Base": "notebook-pen",
+        "My Tasks": "layers-plus",
+        "Dashboard": "layout-grid-circles",
+        "New Project": "layers-plus",
+        "Manage Teams & Roles": "users",
+        "Themes": "palette"
+    }
+
+    # Text displayed on each button
+    DISPLAY_NAMES = {
+        "Personal To-do List": "Personal\nTo-do List",
+        "Team To-do List": "Team\nTo-do List",
+        "Manage Teams & Roles": "Manage Teams\n& Roles"
+    }
+
+    def __init__(self, master, command=None, extra_items=None, width=128):
         super().__init__(master, width=width, corner_radius=0)
-        self.pack_propagate(False)            # keep the fixed sidebar width
-        self.command = command                # App.show_page
-        self.dropdowns = {}
-        self.links = []                       # plain (non-dropdown) nav buttons
-        self.selected = None                  # title of the page currently shown
 
-        # One shared font object: changing its family restyles every button at once
-        self.nav_font = ctk.CTkFont(size=13)
+        self.pack_propagate(False)          
+        self.command = command              
+        self.links = []                     
+        self.selected = None                
+        self.icons = {}                     
 
-        self._add_link("Personal To-do List")  # placeholder for the dropdown, replaced below
-        """
-        # 1. Personal To-do List Dropdown
-        self.personal_dd = Dropdown(
-            self,
-            title="Personal To-do List",
-            items=["List 1"],
-            command=self._on_select,
-            font=self.nav_font
-        )
-        
-        self.personal_dd.pack(fill="x", padx=NAV_PADX, pady=(NAV_PADY))
-        self.dropdowns["personal"] = self.personal_dd
-        """
-        # 2. Team To-do List Dropdown (Populated with permitted teams)
-        teams = team_items if team_items is not None else ["Team 1"]
-        self.team_dd = Dropdown(
-            self,
-            title="Team To-do List",
-            items=teams,
-            command=self._on_select,
-            font=self.nav_font
-        )
-        self.team_dd.pack(fill="x", padx=NAV_PADX, pady=(NAV_PADY))
-        self.dropdowns["team"] = self.team_dd
+        # One shared font object for all navigation buttons
+        self.nav_font = ctk.CTkFont(size=11)
 
-        # 3. Knowledge Base direct button
+        # 1. Main navigation buttons
+        self._add_link("Personal To-do List")
+        self._add_link("Team To-do List")
         self._add_link("Knowledge Base")
 
-        # 4. Role-based links (My Tasks, Dashboard, New Project, Manage Teams & Roles)
-        for title in extra_items or []:
-            self._add_link(title)
+        # 2. Role-based links
+        items = extra_items or []
 
-        # Keep this LAST: subscribe() styles the panel immediately,
-        # so every widget above must already exist.
+        # Add Dashboard if it is not already included
+        if "Dashboard" not in items:
+            items = list(items) + ["Dashboard"]
+
+        # Prevent duplicate buttons
+        added = {
+            "Personal To-do List",
+            "Team To-do List",
+            "Knowledge Base"
+        }
+
+        for title in items:
+            if title not in added and title in self.ICON_MAP:
+                self._add_link(title)
+                added.add(title)
+
+        # Keep this LAST: subscribe() applies the theme immediately
         ThemeManager.subscribe(self.apply_theme)
+
+    # ---- icons ----
+    def get_icon(self, name):
+        """Loads an icon from the icons folder and caches it for reuse."""
+
+        if name not in self.icons:
+            path = os.path.join(
+                os.path.dirname(__file__),
+                "icons",
+                name + ".png"
+            )
+
+            with Image.open(path) as source:
+                image = source.convert("RGBA")
+
+            self.icons[name] = ctk.CTkImage(
+                light_image=image,
+                dark_image=image,
+                size=(26, 26) # to change the size of the icons edit this
+            )
+
+        return self.icons[name]
 
     # ---- theming ----
     def apply_theme(self, palette, style):
-        self.configure(fg_color=palette["card_bg"], corner_radius=0)
+        self.configure(
+            fg_color=palette["card_bg"],
+            corner_radius=0
+        )
 
         self.nav_font.configure(family=style["font_family"])
-        for dd in self.dropdowns.values():
-            dd.restyle(palette, style)
+
         for btn in self.links:
             btn.restyle(palette, style)
 
@@ -146,163 +183,101 @@ class SidePanel(ctk.CTkFrame):
 
     # ---- navigation ----
     def _add_link(self, title):
-        btn = NavButton(self, title, command=self._on_select, font=self.nav_font)
-        btn.pack(fill="x", padx=NAV_PADX, pady=NAV_PADY)
+        icon_name = self.ICON_MAP[title]
+        display_name = self.DISPLAY_NAMES.get(title, title)
+
+        btn = NavButton(
+            self,
+            title,
+            display_name=display_name,
+            image=self.get_icon(icon_name),
+            command=self._on_select,
+            font=self.nav_font
+        )
+
+        btn.pack(fill="x", padx=10, pady=0)
         self.links.append(btn)
 
     def _on_select(self, name):
         """A sidebar button was clicked: highlight it, then tell the App."""
+
         self.select(name)
+
         if self.command:
             self.command(name)
 
     def select(self, name):
-        """Highlight the button for the page currently shown (doesn't change the page)."""
+        """Highlight the button for the page currently shown."""
+
         self.selected = name
         self._refresh_selection()
 
     def _refresh_selection(self):
         for btn in self.links:
             btn.set_selected(btn.title == self.selected)
-        for dd in self.dropdowns.values():
-            dd.mark_selected(self.selected)
 
-    def update_teams(self, team_list: list):
-        """Allows dynamic refreshing of team entries based on user permissions."""
-        if "team" in self.dropdowns:
-            self.dropdowns["team"].set_items(team_list)
-            self._refresh_selection()
 
 
 class NavButton(ctk.CTkButton):
-    """A sidebar entry that goes straight to a page (no dropdown)."""
-    def __init__(self, master, title, command=None, indent=0, **kwargs):
-        kwargs.setdefault("fg_color", NAV_BG)
-        kwargs.setdefault("hover_color", NAV_HOVER)
-        kwargs.setdefault("text_color", "#FFFFFF")
+    """A sidebar entry with an icon above its text."""
+
+    def __init__(self, master, title, command=None, display_name=None, **kwargs):
+
+        image = kwargs.pop("image", None)
+        font = kwargs.pop("font", None)
+
         super().__init__(
             master,
-            text=f"{' ' * indent}{title}",
-            anchor="w",
+            text=display_name or title,
+            image=image,
+            compound="top",
+            anchor="center",
+            width=0,
+            height=60,
+            font=font,
+            fg_color="transparent",
+            hover_color=NAV_BG,
+            hover=False,
+            text_color="#FFFFFF",
+            border_width=0,
+            corner_radius=0,
             command=lambda: command(title) if command else None,
             **kwargs
         )
+
         self.title = title
         self.selected = False
-        self._theme = None                   # last (palette, style) applied
+        self._theme = None
 
     def set_selected(self, selected):
         self.selected = selected
         self.restyle()
 
     def restyle(self, palette=None, style=None):
-        print("restyle", self.title, self.selected)
+
         if palette is not None:
             self._theme = (palette, style)
 
         if self._theme is None:
-            colour = NAV_SELECTED if self.selected else NAV_BG
-            self.configure(fg_color=colour, hover_color=colour if self.selected else NAV_HOVER)
+            self.configure(
+                fg_color="transparent",
+                hover_color=NAV_BG,
+                text_color="#FFFFFF",
+                border_width=0
+            )
             return
 
         p, s = self._theme
-        bg, hover, selected = _nav_colors(p)
+
+        # Apply the theme
         self.configure(
-            fg_color=selected if self.selected else bg,
-            hover_color=selected if self.selected else hover,   # no colour flicker on hover
-            text_color="#FFFFFF",
-            border_color=p["text"],
-            corner_radius=s["widget_radius"],
-            height=s["btn_height"] - 4
+            fg_color="transparent",
+            hover_color=NAV_BG,
+            text_color=p["text"],
+            border_width=0,
+            corner_radius=0,
+            height=90
         )
-
-
-class Dropdown(ctk.CTkFrame):
-    """Collapsible dropdown menu for the side panel."""
-    def __init__(self, master, title, items, command=None, font=None, **kwargs):
-        kwargs.setdefault("fg_color", "transparent")
-        super().__init__(master, **kwargs)
-        self.title = title
-        self.open = False
-        self.command = command
-        self.nav_font = font
-        self.buttons = []
-        self._theme = None
-        self.header_selected = False
-
-        font_kw = {"font": font} if font is not None else {}
-        self.header = ctk.CTkButton(
-            self,
-            text=f"▶ {title}",
-            anchor="w",
-            fg_color=NAV_BG,
-            hover_color=NAV_HOVER,
-            text_color="#FFFFFF",
-            command=self.toggle,
-            **font_kw
-        )
-        self.header.pack(fill="x")
-
-        self.body = ctk.CTkFrame(self, fg_color="transparent")
-        self.set_items(items)
-
-    def set_items(self, items):
-        """Destroys and recreates child buttons cleanly when teams change."""
-        for child in self.body.winfo_children():
-            child.destroy()
-        self.buttons = []
-
-        font_kw = {"font": self.nav_font} if self.nav_font is not None else {}
-        for item in items:
-            btn = NavButton(self.body, item, command=self._clicked, **font_kw)
-            btn.pack(fill="x", padx=(NAV_CHILD_INDENT, 0), pady=NAV_PADY - 1)
-            self.buttons.append(btn)
-
-        if self._theme is not None:           # new buttons pick up the current theme
-            self.restyle(*self._theme)
-
-    def restyle(self, palette, style):
-        self._theme = (palette, style)
-        self._style_header()
-        for btn in self.buttons:
-            btn.restyle(palette, style)
-
-    def _style_header(self):
-        if self._theme is None:
-            self.header.configure(fg_color=NAV_SELECTED if self.header_selected else NAV_BG)
-            return
-        p, s = self._theme
-        bg, hover, selected = _nav_colors(p)
-        self.header.configure(
-            fg_color=selected if self.header_selected else bg,
-            hover_color=selected if self.header_selected else hover,
-            text_color="#FFFFFF",
-            corner_radius=s["widget_radius"],
-            height=s["btn_height"] - 4
-        )
-
-    def mark_selected(self, name):
-        """Highlight the matching item; tint the header and open the dropdown if it's inside."""
-        inside = any(b.title == name for b in self.buttons)
-        for btn in self.buttons:
-            btn.set_selected(btn.title == name)
-        self.header_selected = inside
-        self._style_header()
-        if inside and not self.open:
-            self.toggle()
-
-    def _clicked(self, item):
-        if self.command:
-            self.command(item)
-
-    def toggle(self):
-        self.open = not self.open
-        if self.open:
-            self.body.pack(fill="x")
-            self.header.configure(text=f"▼ {self.title}")
-        else:
-            self.body.pack_forget()
-            self.header.configure(text=f"▶ {self.title}")
 
 
 class PostCard(ctk.CTkFrame):
