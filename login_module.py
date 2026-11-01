@@ -223,7 +223,7 @@ class LoginWindow(ctk.CTk):
         self.subtitle_label.pack(pady=(0, 20))
 
         # Inputs
-        self.username_entry = ctk.CTkEntry(self.card, placeholder_text="Username", width=240, height=38)
+        self.username_entry = ctk.CTkEntry(self.card, placeholder_text="Email", width=240, height=38)
         self.username_entry.pack(pady=8)
 
         self.password_entry = ctk.CTkEntry(self.card, placeholder_text="Password", show="*", width=240, height=38)
