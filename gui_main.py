@@ -77,29 +77,46 @@ class App(ctk.CTk):
         self.geometry("1200x900")
         self.minsize(500, 400)
 
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=0)
+        self.columnconfigure(2, weight=1)
         self.rowconfigure(1, weight=1)
 
-        # 1. Dashboard (Top Bar) with user profile attached
+        # Dashboard (Top Bar) with user profile attached
         self.logged_out = False      # True if the user pressed Log Out
         self.dashboard = Dashboard(self, user_info=self.current_user, on_logout=self.logout)
-        self.dashboard.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.dashboard.grid(row=0, column=0, columnspan=3, sticky="ew")
 
-        # 2. SidePanel with only the permitted team options
+        # SidePanel with only the permitted team options
         permitted_team_names = list(self.allowed_teams.keys())
         self.sidePanel = SidePanel(
             self,
-            command=self.show_page,
+            command=self.handle_sidebar_click,
             extra_items=nav_items_for(self.current_user["email"])
         )
         self.sidePanel.grid(row=1, column=0, sticky="ns")
 
+        # Secondary sidebar for selecting a team
+        self.team_panel = ctk.CTkFrame(self, width=200, corner_radius=0, border_width=0)
+        self.team_panel.grid(row=1, column=1, sticky="ns")
+        self.team_panel.grid_remove()  # Hidden until Team To-do List is clicked
+
+        self.team_buttons = []
+
+        # "Your teams heading on the secondary sidebar"
+        self.team_heading = ctk.CTkLabel(
+            self.team_panel,
+            text="Your Teams",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        self.team_heading.pack(fill="x", padx=12, pady=(15, 10))
+
+        # Main Content Container
+        self.content = ctk.CTkFrame(self, fg_color="transparent")
+        self.content.grid(row=1, column=2, sticky="nsew", padx=10, pady=10)
+
         # When a manager creates a team, add it to the sidebar straight away
         organisation.on_change(self.refresh_teams)
-
-        # 3. Main Content Container
-        self.content = ctk.CTkFrame(self, fg_color="transparent")
-        self.content.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
 
         self.pages = {}
         self.current = None
@@ -149,7 +166,7 @@ class App(ctk.CTk):
         teams = teams_for_user(self.current_user["email"])
         if list(teams) != list(self.allowed_teams):
             self.allowed_teams = teams
-            self.sidePanel.update_teams(list(teams))
+            #self.sidePanel.update_teams(list(teams))
             self.apply_theme(ThemeManager.get_palette(), ThemeManager.get_style())
 
     def apply_theme(self, p, s):
@@ -280,32 +297,38 @@ class App(ctk.CTk):
                     )
 
                 # 8. Standard Frames & Cards
+                                # 8. Standard Frames & Cards
                 elif isinstance(child, ctk.CTkFrame):
                     if child is not self.content and child.cget("fg_color") != "transparent":
+
                         # Remember original border_width from creation (0 = section header, 1 = card, 2 = overdue)
                         if not hasattr(child, "_orig_border"):
                             child._orig_border = child.cget("border_width")
 
                         orig_b = child._orig_border
+
+                        # Keep the team sidebar square, but still apply theme colours
+                        radius = 0 if child is self.team_panel else s["card_radius"]
+
                         if orig_b == 0:
                             child.configure(
                                 fg_color=p["card_bg"],
                                 border_color=p["border"],
-                                corner_radius=0 if child is self.dashboard else s["card_radius"],
+                                corner_radius=0 if child is self.dashboard else radius,
                                 border_width=0
                             )
                         elif orig_b >= 2:
                             child.configure(
                                 fg_color=p["card_bg"],
                                 border_color=p["error"],
-                                corner_radius=s["card_radius"],
+                                corner_radius=radius,
                                 border_width=max(2, b_width)
                             )
                         else:
                             child.configure(
                                 fg_color=p["card_bg"],
                                 border_color=p["border"],
-                                corner_radius=s["card_radius"],
+                                corner_radius=radius,
                                 border_width=b_width
                             )
             except Exception:
@@ -314,6 +337,61 @@ class App(ctk.CTk):
             # Traverse all child containers (including raw tkinter.Canvas inside CTkScrollableFrame)
             if child.winfo_children():
                 self._style_widget_tree(child, p, s)
+                
+    def handle_sidebar_click(self, name):
+        """Handle clicks on the main sidebar."""
+
+        if name == "Team To-do List":
+            # Toggle the secondary team sidebar
+            if self.team_panel.winfo_manager():
+                self.team_panel.grid_remove()
+            else:
+                self.refresh_teams()
+                self.team_panel.grid()
+            return
+
+        # Clicking another main button closes the team sidebar
+        self.team_panel.grid_remove()
+
+        # Navigate to the selected page
+        self.show_page(name)
+
+
+    def refresh_teams(self):
+        """Refresh the secondary sidebar with the user's permitted teams."""
+
+        self.allowed_teams = teams_for_user(self.current_user["email"])
+
+        # Remove old team buttons
+        for button in self.team_buttons:
+            button.destroy()
+
+        self.team_buttons.clear()
+
+        # Create button for each team the user is a member of
+        palette = ThemeManager.get_palette()
+
+        for team_name in self.allowed_teams:
+            button = ctk.CTkButton(
+                self.team_panel,
+                text=team_name,
+                anchor="w",
+                fg_color="transparent",
+                hover_color=palette["primary_hover"],
+                text_color=palette["text"],
+                font=ctk.CTkFont(size=16),
+                border_width=0,
+                command=lambda name=team_name: self.open_team(name)
+            )
+
+            # Add button to the sidebar
+            button.pack(fill="x", padx=10, pady=5)
+            self.team_buttons.append(button)
+
+
+    def open_team(self, team_name):
+        """Open relevant team page."""
+        self.show_page(team_name)
 
 
 def start_main_application(user_id, login_time=None):
