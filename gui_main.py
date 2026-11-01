@@ -19,7 +19,7 @@ from organisation import Permission, organisation
 
 # Base static page bindings (Teams are loaded dynamically per-team key)
 PAGES = {
-    "List 1": PersonalListPage,
+    "Personal To-do List": PersonalListPage,
     "Knowledge Base": KnowledgeBasePage,
     "My Tasks": MyTasksPage,
     "Dashboard": DashboardPage,

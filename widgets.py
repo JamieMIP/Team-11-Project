@@ -93,6 +93,8 @@ class SidePanel(ctk.CTkFrame):
         # One shared font object: changing its family restyles every button at once
         self.nav_font = ctk.CTkFont(size=13)
 
+        self._add_link("Personal To-do List")  # placeholder for the dropdown, replaced below
+        """
         # 1. Personal To-do List Dropdown
         self.personal_dd = Dropdown(
             self,
@@ -101,9 +103,10 @@ class SidePanel(ctk.CTkFrame):
             command=self._on_select,
             font=self.nav_font
         )
+        
         self.personal_dd.pack(fill="x", padx=NAV_PADX, pady=(NAV_PADY))
         self.dropdowns["personal"] = self.personal_dd
-
+        """
         # 2. Team To-do List Dropdown (Populated with permitted teams)
         teams = team_items if team_items is not None else ["Team 1"]
         self.team_dd = Dropdown(
