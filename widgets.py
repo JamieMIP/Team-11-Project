@@ -93,7 +93,8 @@ class SidePanel(ctk.CTkFrame):
         "My Tasks": "layers-plus",
         "Dashboard": "layout-grid-circles",
         "New Project": "layers-plus",
-        "Manage Teams & Roles": "users"
+        "Manage Teams & Roles": "users",
+        "Themes": "palette"
     }
 
     # Text displayed on each button
