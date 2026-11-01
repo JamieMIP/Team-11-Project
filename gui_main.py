@@ -17,6 +17,8 @@ from theme_studio import ThemeStudioWindow
 from sample_data import LIVE_USERS
 from organisation import Permission, organisation
 
+
+
 # Base static page bindings (Teams are loaded dynamically per-team key)
 PAGES = {
     "Personal To-do List": PersonalListPage,
@@ -85,7 +87,6 @@ class App(ctk.CTk):
         self.sidePanel = SidePanel(
             self, 
             command=self.show_page,
-            team_items=permitted_team_names,
             extra_items=nav_items_for(self.current_user["email"])
         )
         self.sidePanel.grid(row=1, column=0, sticky="ns")
