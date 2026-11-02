@@ -163,9 +163,18 @@ class OrganisationService:
         person = self.get_employee(email)
         if person.role is Role.EMPLOYEE:
             person.role = Role.TEAM_LEADER
+        old_leader = team.leader_email
         team.leader_email = email
         if email not in team.member_emails:
             team.member_emails.append(email)
+
+        # The replaced leader stays in the team as a member. If they no longer
+        # lead ANY team, they go back to Employee (the reverse of the automatic
+        # promotion above). Managers keep their role.
+        if old_leader and old_leader != email and old_leader in self._employees:
+            previous = self.get_employee(old_leader)
+            if previous.role is Role.TEAM_LEADER and not self.teams_led_by(old_leader):
+                previous.role = Role.EMPLOYEE
 
     def add_member(self, actor: str, team_id: str, email: str) -> Team:
         self._require(actor, Permission.MANAGE_MEMBERS)

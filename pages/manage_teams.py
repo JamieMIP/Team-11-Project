@@ -139,7 +139,16 @@ class ManageTeamsPage(OrgPage):
             self.show_message(f"{team.name} created. It now appears under Team To-do List.")
 
     def set_leader(self, team_id, menu):
-        self.run_service(organisation.appoint_leader, team_id, self.people_lookup[menu.get()])
+        old_leader = organisation.get_team(team_id).leader_email
+        if self.run_service(organisation.appoint_leader, team_id,
+                            self.people_lookup[menu.get()]) is None:
+            return
+        team = organisation.get_team(team_id)
+        message = f"{name_of(team.leader_email)} now leads {team.name}."
+        if old_leader != team.leader_email:
+            role = organisation.get_employee(old_leader).role.value
+            message += f" {name_of(old_leader)} stays in the team as {'an' if role[0] in 'AEIOU' else 'a'} {role}."
+        self.show_message(message)
 
     def add_member(self, team_id, menu):
         self.run_service(organisation.add_member, team_id, self.people_lookup[menu.get()])
@@ -198,7 +207,14 @@ class ManageTeamsPage(OrgPage):
 
     def change_role(self, email, value):
         if self.run_service(organisation.change_role, email, Role(value)) is not None:
-            self.show_message(f"{name_of(email)} is now a {value}.")
+            article = "an" if value[0] in "AEIOU" else "a"
+            self.show_message(f"{name_of(email)} is now {article} {value}.")
+        else:
+            # The change was refused (e.g. they still lead a team). Redraw so the
+            # dropdown goes back to their real role instead of showing the new one.
+            message = self.message_label.cget("text")
+            self.refresh()
+            self.show_message(message)
 
     def set_access_end(self, email, entry):
         try:
