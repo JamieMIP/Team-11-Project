@@ -70,7 +70,12 @@ class App(ctk.CTk):
         self.login_time = login_time or datetime.now()
 
         # Retrieve user profile & permitted teams
-        self.current_user = LIVE_USERS.get(self.current_user_id, LIVE_USERS[2])
+        self.current_user = dict(LIVE_USERS.get(self.current_user_id, LIVE_USERS[2]))
+        # The role in sample_data.py never changes, but Managers can promote and
+        # demote people while the app runs. Always show the live role instead.
+        live_role = organisation.get_employee(self.current_user["email"]).role
+        self.current_user["role"] = live_role.value
+        self.current_user["is_admin"] = live_role.value == "Manager"
         self.allowed_teams = teams_for_user(self.current_user["email"])
 
         self.title("Productivity & Task Management Platform")

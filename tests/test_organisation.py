@@ -132,6 +132,26 @@ def test_appointing_an_employee_promotes_them(org):
     assert org.get_employee(PRIYA).role is Role.TEAM_LEADER
 
 
+def test_replaced_leader_goes_back_to_employee(org):
+    team2 = team_named(org, "Team 2")
+    org.appoint_leader(ALICE, team2.id, PRIYA)                 # promoted
+    org.appoint_leader(ALICE, team2.id, LIAM)                  # replaced
+    assert org.get_employee(PRIYA).role is Role.EMPLOYEE
+    assert PRIYA in team2.member_emails                        # still in the team
+
+
+def test_replaced_leader_who_leads_another_team_stays_leader(org):
+    org.appoint_leader(ALICE, team_named(org, "Team 1").id, JORDAN)
+    assert org.get_employee(DILIP).role is Role.TEAM_LEADER    # still leads Team 2
+
+
+def test_replaced_manager_keeps_manager_role(org):
+    team4 = team_named(org, "Team 4")
+    org.appoint_leader(ALICE, team4.id, ALICE)
+    org.appoint_leader(ALICE, team4.id, PRIYA)
+    assert org.get_employee(ALICE).role is Role.MANAGER
+
+
 def test_leader_cannot_be_removed(org):
     team = team_named(org, "Team 1")
     with pytest.raises(InvalidAction):
