@@ -81,7 +81,7 @@ The system has three roles, as the client requested: **Employee**, **Team Leader
 |------|--------|
 | Language | Python 3.10+ |
 | GUI | [CustomTkinter](https://customtkinter.tomschimansky.com/) (built on Tkinter) |
-| Images and icons | Pillow |
+| Images and icons | Lucide |
 | Data | In-memory Python objects (`sample_data.py`); no database in Part 1 |
 | Testing | pytest and unittest |
 | Code style | PEP 8 |
