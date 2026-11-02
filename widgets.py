@@ -124,9 +124,8 @@ class SidePanel(ctk.CTkFrame):
         # 2. Role-based links
         items = extra_items or []
 
-        # Add Dashboard if it is not already included
-        if "Dashboard" not in items:
-            items = list(items) + ["Dashboard"]
+        # Dashboard is only included for roles allowed to see it
+        # (nav_items_for in gui_main.py decides), so it is not added here.
 
         # Prevent duplicate buttons
         added = {
