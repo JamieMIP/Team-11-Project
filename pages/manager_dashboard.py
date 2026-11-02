@@ -10,7 +10,7 @@ from datetime import date
 
 import customtkinter as ctk
 
-from organisation import OVERLOAD_THRESHOLD, organisation
+from organisation import OVERLOAD_THRESHOLD, Permission, organisation
 from pages.org_common import OrgPage, clear, name_of, show_date
 
 
@@ -33,6 +33,18 @@ class DashboardPage(OrgPage):
         self.refresh()
 
     def refresh(self):
+        # Safety net: Employees have no dashboard (the sidebar hides it). If
+        # this page is ever opened without permission, explain instead of crashing.
+        if not organisation.can(self.email, Permission.VIEW_DASHBOARD):
+            clear(self.summary)
+            clear(self.body)
+            card = ctk.CTkFrame(self.body, border_width=1)
+            card.pack(fill="x", pady=6, padx=4)
+            ctk.CTkLabel(card, text="The dashboard is available to Managers and Team Leaders.").pack(
+                anchor="w", padx=12, pady=10)
+            self.redraw_theme()
+            return
+
         teams = organisation.dashboard_teams(self.email)
         projects = organisation.dashboard_projects(self.email)
         people = organisation.dashboard_people(self.email)
