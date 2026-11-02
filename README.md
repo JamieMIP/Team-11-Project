@@ -111,7 +111,7 @@ python -m venv .venv
 # Windows:  .venv\Scripts\activate
 # macOS/Linux:  source .venv/bin/activate
 
-pip install customtkinter pillow pytest
+pip install customtkinter
 ```
 
 ### Running the app
